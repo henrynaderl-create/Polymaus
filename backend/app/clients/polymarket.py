@@ -58,11 +58,9 @@ class PolymarketClient:
 
     def __init__(self) -> None:
         self._http = httpx.AsyncClient(timeout=TIMEOUT)
-        self._account = (
-            Account.from_key(settings.poly_private_key)
-            if settings.poly_private_key
-            else None
-        )
+        raw_key = settings.poly_private_key or ""
+        _valid_key = raw_key.startswith("0x") and len(raw_key) == 66
+        self._account = Account.from_key(raw_key) if _valid_key else None
 
     # ── Gamma API ─────────────────────────────────────────────────────────
 
