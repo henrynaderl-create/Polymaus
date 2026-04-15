@@ -1,0 +1,93 @@
+export interface Portfolio {
+  balance: number;
+  equity: number;
+  unrealisedPnl: number;
+  realisedPnl: number;
+  dailyPnl: number;
+  totalTrades: number;
+  winTrades: number;
+  openPositions: number;
+  winRate: number;
+  isDemo: boolean;
+  updatedAt: string;
+}
+
+export interface Position {
+  token_id: string;
+  market_id: string;
+  question: string;
+  outcome: 'YES' | 'NO';
+  shares: number;
+  avg_cost: number;
+  current_price: number;
+  unrealised_pnl: number;
+  strategy: string;
+  opened_at: string;
+}
+
+export interface Trade {
+  side: 'BUY' | 'SELL';
+  token_id: string;
+  market_id: string;
+  question: string;
+  outcome: string;
+  price: number;
+  size: number;
+  shares: number;
+  pnl?: number;
+  strategy: string;
+  ts: string;
+  demo?: boolean;
+  exitReason?: string;
+}
+
+export interface Signal {
+  signal: 'BUY_YES' | 'BUY_NO' | 'SELL' | 'HOLD';
+  tokenId: string;
+  marketId: string;
+  outcome: string;
+  question: string;
+  price: number;
+  confidence: number;
+  reason: string;
+  strategyName: string;
+}
+
+export interface Market {
+  conditionId: string;
+  question: string;
+  yesPrice: number;
+  noPrice: number;
+  volume24h: number;
+  liquidity: number;
+}
+
+export interface LeaderEntry {
+  rank: number;
+  address: string;
+  profit: number;
+  positions: number;
+}
+
+export interface BotStatus {
+  running: boolean;
+  mode: 'demo' | 'live';
+  strategy: string;
+  strategies: string[];
+  portfolio: Portfolio;
+  positions: Position[];
+  recentTrades: Trade[];
+  signals: Signal[];
+  markets: Market[];
+  leaderboard: LeaderEntry[];
+  hotTokens: number;
+  restarts: number;
+  updatedAt: string;
+}
+
+export type WsEvent =
+  | { event: 'portfolio'; data: Portfolio }
+  | { event: 'positions'; data: Position[] }
+  | { event: 'trade'; data: Trade }
+  | { event: 'signals'; data: Signal[] }
+  | { event: 'markets'; data: Market[] };
