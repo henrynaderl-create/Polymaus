@@ -1,15 +1,15 @@
 import React, { useCallback } from 'react';
-import { PortfolioCard } from './cards/PortfolioCard';
-import { PnLChart } from './cards/PnLChart';
-import { PositionsCard } from './cards/PositionsCard';
-import { TradesCard } from './cards/TradesCard';
-import { MarketsCard } from './cards/MarketsCard';
-import { SignalsCard } from './cards/SignalsCard';
-import { LeaderboardCard } from './cards/LeaderboardCard';
-import { BotControls } from './controls/BotControls';
-import { useStore } from '@/hooks/useStore';
-import { useWebSocket } from '@/hooks/useWebSocket';
-import { api } from '@/services/api';
+import { TopBar }          from './terminal/TopBar';
+import { MempoolFeed }     from './terminal/MempoolFeed';
+import { MarketGrid }      from './terminal/MarketGrid';
+import { ActivePositions } from './terminal/ActivePositions';
+import { EquityChart }     from './terminal/EquityChart';
+import { PerformancePanel } from './terminal/PerformancePanel';
+import { AgentPanel }      from './terminal/AgentPanel';
+import { BotController }   from './terminal/BotController';
+import { useStore }        from '@/hooks/useStore';
+import { useWebSocket }    from '@/hooks/useWebSocket';
+import { api }             from '@/services/api';
 
 export function Dashboard() {
   const { state, handleWsMessage, setConnected } = useStore();
@@ -22,99 +22,79 @@ export function Dashboard() {
   useWebSocket(onMessage);
 
   const refresh = useCallback(() => {
-    api.getStatus().then(s => handleWsMessage({ event: 'portfolio', data: s.portfolio }));
+    api.getStatus().then(s => {
+      handleWsMessage({ event: 'portfolio', data: s.portfolio });
+      handleWsMessage({ event: 'positions', data: s.positions });
+      handleWsMessage({ event: 'signals',   data: s.signals });
+      handleWsMessage({ event: 'markets',   data: s.markets });
+    }).catch(() => {});
   }, [handleWsMessage]);
 
   if (state.loading) {
     return (
-      <div className="min-h-screen bg-surface flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-brand/20 flex items-center justify-center">
-            <span className="text-2xl">🐭</span>
-          </div>
-          <div className="text-muted text-sm">Connecting to Polymaus…</div>
+      <div className="h-screen flex items-center justify-center bg-term-bg">
+        <div className="text-term-green text-[12px] tracking-widest animate-blink">
+          INITIALIZING POLYMAUS TERMINAL...
         </div>
       </div>
     );
   }
 
-  if (state.error) {
-    return (
-      <div className="min-h-screen bg-surface flex items-center justify-center">
-        <div className="text-danger text-sm">API Error: {state.error}</div>
-      </div>
-    );
-  }
-
-  const leaderboard = state.status?.leaderboard ?? [];
-  const hotTokens = state.status?.hotTokens ?? 0;
+  const startBalance = state.status?.portfolio
+    ? (state.status.portfolio.balance - (state.status.portfolio.realisedPnl || 0))
+    : 10000;
 
   return (
-    <div className="min-h-screen bg-surface text-white">
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-surface/80 backdrop-blur border-b border-white/5 px-4 py-3">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">🐭</span>
-            <span className="font-bold text-white tracking-tight">Polymaus</span>
-            <span className="hidden sm:block text-xs text-muted">Polymarket Bot</span>
+    <div className="h-screen flex flex-col bg-term-bg overflow-hidden">
+      {/* ── Top bar ── */}
+      <TopBar
+        status={state.status}
+        portfolio={state.portfolio}
+        connected={state.connected}
+      />
+
+      {/* ── Main 3-column grid ── */}
+      <div className="flex-1 grid grid-cols-[220px_1fr_200px] gap-px bg-term-border overflow-hidden">
+
+        {/* LEFT: Mempool feed */}
+        <MempoolFeed trades={state.trades} />
+
+        {/* CENTER: Market cards + chart + positions */}
+        <div className="flex flex-col gap-px bg-term-border overflow-hidden">
+
+          {/* Market sparkline cards — top 40% */}
+          <div className="h-[40%] min-h-0">
+            <MarketGrid markets={state.markets} signals={state.signals} />
           </div>
-          <div className="flex items-center gap-3">
-            <span className={`text-xs px-2.5 py-1 rounded-full font-semibold border ${
-              state.status?.mode === 'demo'
-                ? 'bg-warn/10 text-warn border-warn/30'
-                : 'bg-danger/10 text-danger border-danger/30'
-            }`}>
-              {state.status?.mode?.toUpperCase() ?? 'DEMO'}
-            </span>
-            {state.connected && (
-              <span className="flex items-center gap-1 text-xs text-success">
-                <span className="w-1.5 h-1.5 rounded-full bg-success animate-pulse2" />
-                Live
-              </span>
-            )}
+
+          {/* Equity chart — middle 30% */}
+          <div className="h-[28%] min-h-0">
+            <EquityChart trades={state.trades} startBalance={startBalance} />
+          </div>
+
+          {/* Active positions — bottom 32% */}
+          <div className="h-[32%] min-h-0">
+            <ActivePositions positions={state.positions} />
           </div>
         </div>
-      </header>
 
-      {/* Main grid */}
-      <main className="max-w-7xl mx-auto p-3 sm:p-4 lg:p-6">
-        {/* Mobile: single column  |  Tablet: 2-col  |  Desktop: 3-col */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
-
-          {/* Row 1: Portfolio (full) + PnL chart */}
-          <div className="sm:col-span-2 xl:col-span-2">
-            <PortfolioCard portfolio={state.portfolio} />
+        {/* RIGHT: Performance + agents */}
+        <div className="flex flex-col gap-px bg-term-border overflow-hidden">
+          <div className="h-[55%] min-h-0">
+            <PerformancePanel portfolio={state.portfolio} status={state.status} />
           </div>
-          <div>
-            <BotControls
+          <div className="h-[45%] min-h-0">
+            <AgentPanel
               status={state.status}
-              connected={state.connected}
-              onRefresh={refresh}
+              portfolio={state.portfolio}
+              onStrategyChange={refresh}
             />
           </div>
-
-          {/* Row 2: PnL chart (wide) */}
-          <div className="sm:col-span-2 xl:col-span-3">
-            <PnLChart trades={state.trades} />
-          </div>
-
-          {/* Row 3: 3-column cards */}
-          <PositionsCard positions={state.positions} />
-          <TradesCard trades={state.trades} />
-          <SignalsCard signals={state.signals} />
-
-          {/* Row 4 */}
-          <div className="sm:col-span-2">
-            <MarketsCard markets={state.markets} />
-          </div>
-          <LeaderboardCard leaders={leaderboard} hotTokens={hotTokens} />
         </div>
+      </div>
 
-        <p className="mt-8 text-center text-[10px] text-muted/50">
-          Polymaus v1.0 · {state.status?.mode === 'demo' ? '🟡 Demo mode – no real money' : '🔴 Live mode'} · Not financial advice
-        </p>
-      </main>
+      {/* ── Bottom control bar ── */}
+      <BotController status={state.status} onRefresh={refresh} />
     </div>
   );
 }
