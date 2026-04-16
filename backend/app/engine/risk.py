@@ -9,6 +9,7 @@ Implements:
 """
 from __future__ import annotations
 
+import logging
 import math
 from dataclasses import dataclass
 from datetime import date
@@ -16,6 +17,7 @@ from datetime import date
 from app.config import get_settings
 from app.engine.portfolio import Portfolio
 
+logger = logging.getLogger("polymaus.risk")
 settings = get_settings()
 
 
@@ -41,10 +43,9 @@ class RiskEngine:
 
         # 1. Price sanity – never buy near 0 or 1
         if not (0.02 <= price <= settings.max_entry_price):
-            return RiskCheckResult(
-                False,
-                f"Price {price:.3f} outside allowed range [0.02, {settings.max_entry_price}]",
-            )
+            reason = f"Price {price:.3f} outside allowed range [0.02, {settings.max_entry_price}]"
+            logger.debug("RISK BLOCK: %s | token=%s", reason, token_id[:12])
+            return RiskCheckResult(False, reason)
 
         # 2. Daily loss limit
         today = date.today()
@@ -52,24 +53,23 @@ class RiskEngine:
             self._daily_loss_start[today] = snap.equity
         daily_loss = self._daily_loss_start[today] - snap.equity
         if daily_loss >= settings.max_daily_loss_usd:
-            return RiskCheckResult(
-                False,
-                f"Daily loss limit hit: ${daily_loss:.2f} >= ${settings.max_daily_loss_usd}",
-            )
+            reason = f"Daily loss limit hit: ${daily_loss:.2f} >= ${settings.max_daily_loss_usd}"
+            logger.warning("RISK BLOCK: %s", reason)
+            return RiskCheckResult(False, reason)
 
         # 3. Max positions
         if snap.open_positions >= settings.max_open_positions:
-            # Allow adding to existing positions
             if token_id not in self.portfolio.positions:
-                return RiskCheckResult(
-                    False,
-                    f"Max open positions ({settings.max_open_positions}) reached",
-                )
+                reason = f"Max open positions ({settings.max_open_positions}) reached"
+                logger.debug("RISK BLOCK: %s", reason)
+                return RiskCheckResult(False, reason)
 
         # 4. Available balance
         available = snap.balance
         if available < settings.min_trade_usd:
-            return RiskCheckResult(False, "Insufficient balance")
+            reason = "Insufficient balance"
+            logger.warning("RISK BLOCK: %s ($%.2f available)", reason, available)
+            return RiskCheckResult(False, reason)
 
         # 5. Kelly Criterion sizing
         kelly_size = self._kelly_size(price, snap.equity)
@@ -80,10 +80,13 @@ class RiskEngine:
             available * 0.9,  # keep 10% buffer
         )
         if size < settings.min_trade_usd:
-            return RiskCheckResult(
-                False, f"Sized-down trade ${size:.2f} below minimum ${settings.min_trade_usd}"
-            )
+            reason = f"Sized-down trade ${size:.2f} below minimum ${settings.min_trade_usd}"
+            logger.debug("RISK BLOCK: %s | kelly_size=%.2f price=%.3f equity=%.2f",
+                         reason, kelly_size, price, snap.equity)
+            return RiskCheckResult(False, reason)
 
+        logger.debug("RISK OK: price=%.3f size=%.2f (kelly=%.2f, balance=%.2f)",
+                     price, size, kelly_size, available)
         return RiskCheckResult(True, "OK", round(size, 2))
 
     def check_exit(self, token_id: str, current_price: float) -> tuple[bool, str]:

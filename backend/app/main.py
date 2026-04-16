@@ -20,6 +20,9 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
 )
+# Set polymaus loggers to DEBUG so every trade decision is visible
+for _log_name in ("polymaus.bot", "polymaus.risk", "polymaus"):
+    logging.getLogger(_log_name).setLevel(logging.DEBUG)
 logger = logging.getLogger("polymaus")
 settings = get_settings()
 

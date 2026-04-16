@@ -60,6 +60,7 @@ class BotOrchestrator:
         self._last_signals: list[dict] = []
         self._broadcast: BroadcastFn | None = None
         self._restart_count = 0
+        self._test_trade_countdown: int = settings.test_trade_interval_cycles
 
     def set_broadcast(self, fn: BroadcastFn) -> None:
         self._broadcast = fn
@@ -161,27 +162,51 @@ class BotOrchestrator:
         if not self._markets:
             return
         try:
-            # Batch collect token IDs
-            token_ids = []
-            for m in self._markets[:50]:  # limit to top 50
-                for key in ("yes_token_id", "no_token_id"):
-                    tid = m.get(key) or ""
-                    if tid:
-                        token_ids.append(tid)
+            # ── Step 1: Seed prices from Gamma API outcomePrices (instant, no CLOB) ──
+            seeded = 0
+            for m in self._markets:
+                yes_id = m.get("yes_token_id") or ""
+                no_id  = m.get("no_token_id") or ""
+                yes_p  = m.get("yes_price")
+                no_p   = m.get("no_price")
+                if yes_id and yes_p is not None and yes_id not in self._prices:
+                    self._prices[yes_id] = float(yes_p)
+                    seeded += 1
+                if no_id and no_p is not None and no_id not in self._prices:
+                    self._prices[no_id] = float(no_p)
+                    seeded += 1
 
-            # Fetch prices concurrently (max 10 at a time)
-            sem = asyncio.Semaphore(10)
+            logger.info(
+                "Prices seeded from Gamma API: %d tokens | total tracked: %d",
+                seeded, len(self._prices),
+            )
 
-            async def fetch_price(tid: str) -> tuple[str, float]:
-                async with sem:
-                    try:
-                        p = await self.client.get_price(tid, "buy")
-                        return tid, p
-                    except Exception:
-                        return tid, self._prices.get(tid, 0.5)
+            # ── Step 2: Refresh top-20 via CLOB for real-time accuracy (best-effort) ──
+            token_ids: list[str] = []
+            for m in self._markets[:20]:
+                yes_id = m.get("yes_token_id") or ""
+                no_id  = m.get("no_token_id") or ""
+                if yes_id:
+                    token_ids.append(yes_id)
+                if no_id:
+                    token_ids.append(no_id)
 
-            results = await asyncio.gather(*[fetch_price(tid) for tid in token_ids])
-            self._prices.update(dict(results))
+            if token_ids:
+                sem = asyncio.Semaphore(5)
+
+                async def fetch_price(tid: str) -> tuple[str, float]:
+                    async with sem:
+                        try:
+                            p = await self.client.get_price(tid, "buy")
+                            return tid, p
+                        except Exception:
+                            return tid, self._prices.get(tid, 0.5)
+
+                results = await asyncio.gather(*[fetch_price(tid) for tid in token_ids])
+                clob_updates = {tid: p for tid, p in results}
+                self._prices.update(clob_updates)
+                logger.debug("CLOB price update: %d tokens refreshed", len(clob_updates))
+
         except Exception as exc:
             logger.warning("Price refresh failed: %s", exc)
 
@@ -195,13 +220,75 @@ class BotOrchestrator:
                     logger.info("Exit %s @ %.3f: %s pnl=%.2f", token_id[:8], price, reason, trade.get("pnl", 0))
                     await self._emit("trade", {**trade, "exitReason": reason})
 
+    async def _execute_test_trade(self) -> None:
+        """TEST MODE: force a random demo trade to validate the full pipeline."""
+        import random
+        if not self._markets:
+            return
+        candidates = [
+            m for m in self._markets[:30]
+            if m.get("yes_token_id") and m.get("no_token_id")
+        ]
+        if not candidates:
+            logger.warning("[TEST MODE] No candidates with token IDs — normalization may have failed")
+            return
+
+        m = random.choice(candidates)
+        is_yes = random.random() > 0.5
+        token_id = m["yes_token_id"] if is_yes else m["no_token_id"]
+        price = self._prices.get(token_id)
+        if price is None:
+            raw = m.get("yes_price" if is_yes else "no_price", 0.5)
+            price = float(raw) if raw is not None else 0.5
+        # Clamp to tradeable range
+        price = max(0.05, min(price, 0.60))
+
+        question = (m.get("question") or "TEST TRADE")[:60]
+        logger.info("[TEST MODE] Injecting trade: %s '%s' @ %.3f",
+                    "YES" if is_yes else "NO", question, price)
+
+        trade = await self.demo_engine.execute_buy(
+            token_id=token_id,
+            market_id=m.get("conditionId") or m.get("id", ""),
+            question=question,
+            outcome="YES" if is_yes else "NO",
+            market_price=price,
+            strategy="test_mode",
+        )
+        if trade:
+            logger.info("[TEST MODE] Trade EXECUTED: size=$%.2f token=%s",
+                        trade.get("size_usd", 0), token_id[:12])
+            await self._emit("trade", trade)
+        else:
+            logger.warning("[TEST MODE] Trade REJECTED by risk engine (price=%.3f)", price)
+
     async def _run_strategy_cycle(self) -> None:
         if not self._markets:
+            logger.debug("Strategy cycle skipped: no markets loaded yet")
             return
 
         strategy = self.strategies.get(self.active_strategy)
         if not strategy:
             return
+
+        # ── TEST MODE: inject a forced trade every N cycles ───────────────
+        if settings.test_mode:
+            self._test_trade_countdown -= 1
+            logger.debug("[TEST MODE] countdown=%d", self._test_trade_countdown)
+            if self._test_trade_countdown <= 0:
+                self._test_trade_countdown = settings.test_trade_interval_cycles
+                await self._execute_test_trade()
+
+        # ── Log current price coverage ─────────────────────────────────────
+        priced = sum(
+            1 for m in self._markets
+            if self._prices.get(m.get("yes_token_id") or "x", None) is not None
+        )
+        logger.info(
+            "Strategy cycle: strategy=%s markets=%d priced=%d/%d prices_total=%d",
+            self.active_strategy, len(self._markets), priced, len(self._markets),
+            len(self._prices),
+        )
 
         # Update adaptive strategy with leaderboard data
         if self.active_strategy == StrategyName.ADAPTIVE:
@@ -213,6 +300,13 @@ class BotOrchestrator:
             logger.error("Strategy error: %s", exc)
             return
 
+        logger.info("Strategy '%s' generated %d signals", self.active_strategy, len(signals))
+        for sig in signals[:5]:
+            logger.info(
+                "  SIGNAL %s | %s @ %.3f conf=%.2f | %s",
+                sig.signal, sig.question[:45], sig.price, sig.confidence, sig.reason,
+            )
+
         self._last_signals = [s.to_dict() for s in signals[:20]]
 
         # Execute top signals
@@ -222,7 +316,12 @@ class BotOrchestrator:
                 break
             if sig.signal in (SignalType.BUY_YES, SignalType.BUY_NO):
                 if sig.token_id in self.portfolio.positions:
-                    continue  # Already in this position
+                    logger.debug("Skip: already in position %s", sig.token_id[:12])
+                    continue
+                logger.info(
+                    "Attempting trade: %s '%s' @ %.3f conf=%.2f",
+                    sig.outcome, sig.question[:45], sig.price, sig.confidence,
+                )
                 trade = await self.demo_engine.execute_buy(
                     token_id=sig.token_id,
                     market_id=sig.market_id,
@@ -234,10 +333,18 @@ class BotOrchestrator:
                 if trade:
                     executed += 1
                     logger.info(
-                        "New position: %s %s @ %.3f conf=%.2f",
-                        sig.outcome, sig.question[:40], sig.price, sig.confidence,
+                        "TRADE EXECUTED: %s '%s' @ %.3f size=$%.2f",
+                        sig.outcome, sig.question[:45], sig.price,
+                        trade.get("size_usd", 0),
                     )
                     await self._emit("trade", trade)
+                else:
+                    logger.warning(
+                        "Trade REJECTED: %s '%s' @ %.3f (price range [0.02, %.2f], balance=$%.2f)",
+                        sig.outcome, sig.question[:40], sig.price,
+                        settings.max_entry_price,
+                        self.portfolio.snapshot().balance,
+                    )
 
     async def _refresh_leaderboard(self) -> None:
         try:
@@ -257,8 +364,14 @@ class BotOrchestrator:
             {
                 "conditionId": m.get("conditionId") or m.get("id", ""),
                 "question": (m.get("question") or "")[:80],
-                "yesPrice": self._prices.get(m.get("yes_token_id") or "", 0.5),
-                "noPrice": self._prices.get(m.get("no_token_id") or "", 0.5),
+                "yesPrice": self._prices.get(
+                    m.get("yes_token_id") or "",
+                    m.get("yes_price", 0.5)
+                ),
+                "noPrice": self._prices.get(
+                    m.get("no_token_id") or "",
+                    m.get("no_price", 0.5)
+                ),
                 "volume24h": float(m.get("volume24hr") or 0),
                 "liquidity": float(m.get("liquidity") or 0),
             }
@@ -292,8 +405,14 @@ class BotOrchestrator:
                 {
                     "conditionId": m.get("conditionId") or m.get("id", ""),
                     "question": (m.get("question") or "")[:80],
-                    "yesPrice": self._prices.get(m.get("yes_token_id") or "", 0.5),
-                    "noPrice": self._prices.get(m.get("no_token_id") or "", 0.5),
+                    "yesPrice": self._prices.get(
+                        m.get("yes_token_id") or "",
+                        m.get("yes_price", 0.5)
+                    ),
+                    "noPrice": self._prices.get(
+                        m.get("no_token_id") or "",
+                        m.get("no_price", 0.5)
+                    ),
                     "volume24h": float(m.get("volume24hr") or 0),
                 }
                 for m in self._markets[:20]

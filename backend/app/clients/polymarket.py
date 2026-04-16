@@ -82,7 +82,49 @@ class PolymarketClient:
         resp.raise_for_status()
         data = resp.json()
         markets = data if isinstance(data, list) else data.get("markets", [])
-        return [m for m in markets if float(m.get("volume24hr", 0) or 0) >= min_volume]
+        filtered = [m for m in markets if float(m.get("volume24hr", 0) or 0) >= min_volume]
+        return [self._normalize_market(m) for m in filtered]
+
+    @staticmethod
+    def _normalize_market(m: dict) -> dict:
+        """Normalize Gamma API response: extract token IDs and prices into standard fields."""
+        import json as _json
+
+        # ── Token IDs ──────────────────────────────────────────────────────
+        clob_ids = m.get("clobTokenIds") or []
+        if isinstance(clob_ids, str):
+            try:
+                clob_ids = _json.loads(clob_ids)
+            except Exception:
+                clob_ids = []
+
+        if not m.get("yes_token_id") and len(clob_ids) >= 1:
+            m["yes_token_id"] = clob_ids[0]
+        if not m.get("no_token_id") and len(clob_ids) >= 2:
+            m["no_token_id"] = clob_ids[1]
+
+        # ── Prices ────────────────────────────────────────────────────────
+        outcome_prices = m.get("outcomePrices") or []
+        if isinstance(outcome_prices, str):
+            try:
+                outcome_prices = _json.loads(outcome_prices)
+            except Exception:
+                outcome_prices = []
+
+        if len(outcome_prices) >= 2:
+            try:
+                m["yes_price"] = float(outcome_prices[0])
+                m["no_price"] = float(outcome_prices[1])
+            except (ValueError, TypeError):
+                pass
+        elif len(outcome_prices) == 1:
+            try:
+                m["yes_price"] = float(outcome_prices[0])
+                m["no_price"] = round(1.0 - m["yes_price"], 4)
+            except (ValueError, TypeError):
+                pass
+
+        return m
 
     async def get_market(self, condition_id: str) -> dict:
         resp = await self._http.get(f"{settings.gamma_url}/markets/{condition_id}")

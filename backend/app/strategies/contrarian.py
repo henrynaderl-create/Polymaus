@@ -28,12 +28,12 @@ SKIP_KEYWORDS = {
 class ContrarianStrategy(BaseStrategy):
     name = "contrarian"
 
-    # Entry: buy NO when YES price is above this threshold
-    YES_THRESHOLD_HIGH: float = 0.70
-    # Minimum volume to ensure liquidity
-    MIN_VOLUME_24H: float = 2_000.0
-    # Minimum liquidity
-    MIN_LIQUIDITY: float = 1_000.0
+    # Entry: buy NO when YES price is above this threshold (lowered for demo)
+    YES_THRESHOLD_HIGH: float = 0.55
+    # Minimum volume to ensure liquidity (lowered for demo)
+    MIN_VOLUME_24H: float = 200.0
+    # Minimum liquidity (lowered for demo)
+    MIN_LIQUIDITY: float = 100.0
 
     async def analyze(self, markets: list[dict], prices: dict[str, float]) -> list[Signal]:
         signals: list[Signal] = []
