@@ -132,28 +132,72 @@ class PolymarketClient:
         return resp.json()
 
     async def get_leaderboard(self, limit: int = 50) -> list[dict]:
-        """Fetch top traders by P&L."""
+        """Fetch top traders by P&L. Falls back to synthetic if all APIs fail."""
+        endpoints = [
+            ("https://data-api.polymarket.com/leaderboard", {"window": "all", "limit": limit}),
+            ("https://data-api.polymarket.com/leaderboard", {"window": "1m", "limit": limit}),
+            ("https://data-api.polymarket.com/leaderboard", {"window": "1w", "limit": limit}),
+            (f"{settings.gamma_url}/leaderboard", {"limit": limit, "timeframe": "all"}),
+            ("https://data-api.polymarket.com/rankings", {"window": "all", "limit": limit}),
+        ]
+        for url, params in endpoints:
+            try:
+                resp = await self._http.get(url, params=params, timeout=8.0)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    result = (
+                        data if isinstance(data, list)
+                        else data.get("data") or data.get("leaderboard") or data.get("results") or []
+                    )
+                    if result:
+                        return result[:limit]
+            except Exception:
+                pass
+        return await self._synthetic_leaderboard(limit)
+
+    async def _synthetic_leaderboard(self, limit: int = 50) -> list[dict]:
+        """Synthesize a leaderboard from the largest active position holders."""
         try:
             resp = await self._http.get(
-                f"{settings.gamma_url}/leaderboard",
-                params={"limit": limit, "timeframe": "all"},
+                f"{settings.gamma_url}/positions",
+                params={
+                    "sizeThreshold": "50",
+                    "order": "currentValue",
+                    "ascending": "false",
+                    "limit": 200,
+                },
+                timeout=10.0,
             )
             if resp.status_code == 200:
-                data = resp.json()
-                return data if isinstance(data, list) else data.get("data", [])
-        except Exception:
-            pass
-        # Fallback: data-api endpoint
-        try:
-            resp = await self._http.get(
-                "https://data-api.polymarket.com/leaderboard",
-                params={"limit": limit},
+                positions = resp.json()
+                if isinstance(positions, list):
+                    by_user: dict[str, dict] = {}
+                    for p in positions:
+                        addr = (
+                            p.get("user") or p.get("proxyWallet")
+                            or p.get("address") or ""
+                        )
+                        if not addr or len(addr) < 10:
+                            continue
+                        if addr not in by_user:
+                            by_user[addr] = {
+                                "address": addr,
+                                "profit": 0.0,
+                                "positions": 0,
+                                "winRate": 0.0,
+                            }
+                        val = float(p.get("currentValue") or p.get("value") or 0)
+                        by_user[addr]["profit"] += val
+                        by_user[addr]["positions"] += 1
+                    ranked = sorted(
+                        by_user.values(), key=lambda x: x["profit"], reverse=True
+                    )
+                    return ranked[:limit]
+        except Exception as exc:
+            import logging
+            logging.getLogger("polymaus.client").warning(
+                "Synthetic leaderboard failed: %s", exc
             )
-            if resp.status_code == 200:
-                data = resp.json()
-                return data if isinstance(data, list) else data.get("data", [])
-        except Exception:
-            pass
         return []
 
     async def get_trader_positions(self, address: str) -> list[dict]:

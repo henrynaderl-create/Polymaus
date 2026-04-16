@@ -17,6 +17,7 @@ class StrategyName(str, Enum):
     MARKET_MAKER = "market_maker"
     SIGNAL = "signal"
     ADAPTIVE = "adaptive"
+    MOMENTUM = "momentum"
 
 
 class Settings(BaseSettings):
@@ -45,17 +46,17 @@ class Settings(BaseSettings):
     database_url: str = "sqlite+aiosqlite:///./polymaus.db"
 
     # ── Risk Controls ─────────────────────────────────────────
-    max_position_usd: float = 50.0
-    max_daily_loss_usd: float = 200.0
-    max_open_positions: int = 20
-    portfolio_alloc_pct: float = 0.02
-    min_trade_usd: float = 5.0
-    max_entry_price: float = 0.65
+    max_position_usd: float = 15.0
+    max_daily_loss_usd: float = 75.0
+    max_open_positions: int = 30
+    portfolio_alloc_pct: float = 0.001
+    min_trade_usd: float = 1.0
+    max_entry_price: float = 0.92
 
     # ── Strategy Parameters ───────────────────────────────────
-    default_strategy: StrategyName = StrategyName.CONTRARIAN
-    market_refresh_secs: int = 600
-    price_poll_secs: int = 30
+    default_strategy: StrategyName = StrategyName.MOMENTUM
+    market_refresh_secs: int = 300
+    price_poll_secs: int = 15
     mm_spread_bps: int = 200
     signal_consensus_required: int = 2
 
@@ -65,7 +66,7 @@ class Settings(BaseSettings):
 
     # ── Test Mode (forces random trades to validate full pipeline) ─────────
     test_mode: bool = True
-    test_trade_interval_cycles: int = 4   # force trade every N price-poll cycles
+    test_trade_interval_cycles: int = 6   # force trade every N price-poll cycles (6×15s=90s)
 
     # ── Server ────────────────────────────────────────────────
     host: str = "0.0.0.0"

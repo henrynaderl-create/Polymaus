@@ -18,22 +18,21 @@ from app.strategies.base import BaseStrategy, Signal, SignalType
 
 settings = get_settings()
 
-# Markets where YES can spike unexpectedly – skip these
+# Skip only truly random black-swan events (not crypto/politics — those are high-volume)
 SKIP_KEYWORDS = {
-    "btc", "bitcoin", "eth", "crypto", "elon", "trump", "hurricane",
-    "earthquake", "war", "assassination",
+    "hurricane", "earthquake", "assassination",
 }
 
 
 class ContrarianStrategy(BaseStrategy):
     name = "contrarian"
 
-    # Entry: buy NO when YES price is above this threshold (lowered for demo)
-    YES_THRESHOLD_HIGH: float = 0.55
-    # Minimum volume to ensure liquidity (lowered for demo)
+    # Entry: buy NO when YES price is above this threshold
+    YES_THRESHOLD_HIGH: float = 0.65
+    # Minimum volume to ensure liquidity
     MIN_VOLUME_24H: float = 200.0
-    # Minimum liquidity (lowered for demo)
-    MIN_LIQUIDITY: float = 100.0
+    # Minimum liquidity
+    MIN_LIQUIDITY: float = 50.0
 
     async def analyze(self, markets: list[dict], prices: dict[str, float]) -> list[Signal]:
         signals: list[Signal] = []

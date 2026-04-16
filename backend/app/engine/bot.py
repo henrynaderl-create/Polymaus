@@ -19,7 +19,8 @@ from app.engine.risk import RiskEngine
 from app.leaderboard.tracker import LeaderboardTracker
 from app.leaderboard.copy_engine import CopyTradingEngine
 from app.strategies import (
-    AdaptiveStrategy, ContrarianStrategy, MarketMakerStrategy, SignalStrategy
+    AdaptiveStrategy, ContrarianStrategy, MarketMakerStrategy,
+    MomentumStrategy, SignalStrategy,
 )
 from app.strategies.base import Signal, SignalType
 from app.strategies.edge_scorer import EdgeScorer
@@ -53,6 +54,7 @@ class BotOrchestrator:
             StrategyName.MARKET_MAKER: MarketMakerStrategy(),
             StrategyName.SIGNAL:       SignalStrategy(),
             StrategyName.ADAPTIVE:     AdaptiveStrategy(),
+            StrategyName.MOMENTUM:     MomentumStrategy(),
         }
         self.active_strategy: str = settings.default_strategy.value
 
@@ -66,7 +68,7 @@ class BotOrchestrator:
         self._test_trade_countdown: int = settings.test_trade_interval_cycles
         # Activity enforcer: seconds since last trade
         self._last_trade_ts: float = time.time()
-        self._activity_enforce_secs: float = 300.0  # force trade if idle 5 min
+        self._activity_enforce_secs: float = 90.0  # force trade if idle 90s
 
     def set_broadcast(self, fn: BroadcastFn) -> None:
         self._broadcast = fn
@@ -163,7 +165,7 @@ class BotOrchestrator:
     async def _refresh_markets(self) -> None:
         try:
             self._markets = await self.client.get_markets(
-                active=True, limit=100, min_volume=200.0
+                active=True, limit=150, min_volume=100.0
             )
             logger.info("Markets refreshed: %d active", len(self._markets))
         except Exception as exc:
@@ -188,9 +190,9 @@ class BotOrchestrator:
                     seeded += 1
             logger.info("Prices seeded from Gamma: %d new | total: %d", seeded, len(self._prices))
 
-            # Step 2: live CLOB update for top 20 (best-effort)
+            # Step 2: live CLOB update for top 30 (best-effort)
             token_ids: list[str] = []
-            for m in self._markets[:20]:
+            for m in self._markets[:30]:
                 for key in ("yes_token_id", "no_token_id"):
                     tid = m.get(key) or ""
                     if tid:
@@ -314,7 +316,7 @@ class BotOrchestrator:
 
         executed = 0
         for sig in signals:
-            if executed >= 3:
+            if executed >= 5:
                 break
             if sig.signal not in (SignalType.BUY_YES, SignalType.BUY_NO):
                 continue
