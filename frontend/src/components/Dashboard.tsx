@@ -20,7 +20,9 @@ export function Dashboard() {
     handleWsMessage(msg);
   }, [handleWsMessage, setConnected]);
 
-  useWebSocket(onMessage);
+  const onDisconnect = useCallback(() => setConnected(false), [setConnected]);
+
+  useWebSocket(onMessage, onDisconnect);
 
   const refresh = useCallback(() => {
     api.getStatus().then(s => {

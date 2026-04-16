@@ -116,13 +116,18 @@ class RiskEngine:
     @staticmethod
     def _kelly_size(p: float, equity: float) -> float:
         """
-        Kelly fraction for binary outcome bet.
-        f* = p - (1-p)/b  where b = (1/p - 1) are the odds.
-        We apply 1/4 Kelly for safety (fractional Kelly).
+        Kelly sizing for a Polymarket binary position.
+
+        Pay `p` per share. Win: receive $1 (profit = 1-p). Lose: lose p.
+        We assume an 8% edge over the market price (our true win prob = p + 0.08).
+        Formula: f* = q - (1-q) * p/(1-p)   where q = estimated win probability.
+        Quarter-Kelly applied for safety. Floor at 0.5% equity so small edges still trade.
         """
         if p <= 0 or p >= 1:
             return 0.0
-        b = (1.0 - p) / p  # payout odds
-        kelly = (p - (1 - p) / b) if b > 0 else 0
-        quarter_kelly = max(kelly * 0.25, 0)
-        return round(quarter_kelly * equity, 2)
+        q = min(0.95, p + 0.08)       # assume 8% edge over market
+        kelly = q - (1 - q) * p / (1 - p)
+        if kelly <= 0:
+            return 0.0
+        quarter_kelly = kelly * 0.25
+        return round(max(quarter_kelly, 0.005) * equity, 2)  # floor 0.5% equity

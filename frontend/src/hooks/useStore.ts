@@ -98,24 +98,25 @@ export function useStore() {
       .catch(err => setState(s => ({ ...s, loading: false, error: err.message })));
   }, []);
 
-  // Polling fallback (every 5s when WS is down)
+  // Polling — runs every 5s. Always refreshes data; primary source when WS is down.
   useEffect(() => {
     const id = setInterval(() => {
-      if (!state.connected) {
-        api.getStatus().then(status => {
-          setState(s => ({
-            ...s,
-            status,
-            portfolio: status.portfolio,
-            positions: status.positions,
-            signals: status.signals,
-            markets: status.markets,
-          }));
-        }).catch(() => {});
-      }
+      api.getStatus().then(status => {
+        setState(s => ({
+          ...s,
+          status,
+          portfolio: status.portfolio,
+          positions: status.positions,
+          signals: status.signals,
+          markets: status.markets,
+          traders: status.traders ?? s.traders,
+          copyTrades: status.copyTrades ?? s.copyTrades,
+          edgeMarkets: status.edgeMarkets ?? s.edgeMarkets,
+        }));
+      }).catch(() => {});
     }, 5000);
     return () => clearInterval(id);
-  }, [state.connected]);
+  }, []);
 
   return { state, handleWsMessage, setConnected };
 }
