@@ -84,6 +84,23 @@ async def get_leaderboard(bot=Depends(get_bot)):
     }
 
 
+@router.get("/traders")
+async def get_traders(bot=Depends(get_bot)):
+    """Top traders with trust scores and copy-trade data."""
+    return {
+        "traders": bot.leaderboard.get_leaders_snapshot(),
+        "followed": len(bot.leaderboard.get_ranked_traders(min_trust=0.40)),
+        "hotTokens": len(bot.leaderboard.hot_tokens),
+        "copyHistory": bot.copy_engine.get_copy_history(50),
+    }
+
+
+@router.get("/edge-markets")
+async def get_edge_markets(bot=Depends(get_bot)):
+    """Markets ranked by edge score."""
+    return bot._last_edge_markets
+
+
 # ── Config ────────────────────────────────────────────────────────────────
 
 @router.get("/config")

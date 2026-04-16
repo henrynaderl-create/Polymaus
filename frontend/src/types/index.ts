@@ -69,6 +69,46 @@ export interface LeaderEntry {
   positions: number;
 }
 
+export interface Trader {
+  rank: number;
+  address: string;
+  profit: number;
+  positions: number;
+  trustScore: number;
+  winRate: number;
+  recentPnl: number;
+  copyCount: number;
+  isFollowed: boolean;
+}
+
+export interface CopyTrade {
+  traderAddress: string;
+  traderRank: number;
+  trustScore: number;
+  question: string;
+  outcome: 'YES' | 'NO';
+  price: number;
+  size: number;
+  ts: string;
+  tokenId: string;
+  marketId: string;
+}
+
+export interface MarketEdge {
+  conditionId: string;
+  question: string;
+  edgeScore: number;
+  yesPrice: number;
+  noPrice: number;
+  volume24h: number;
+  factors: {
+    contrarian: number;
+    volumeSpike: number;
+    priceDrift: number;
+    liquidity: number;
+  };
+}
+
 export interface BotStatus {
   running: boolean;
   mode: 'demo' | 'live';
@@ -80,6 +120,9 @@ export interface BotStatus {
   signals: Signal[];
   markets: Market[];
   leaderboard: LeaderEntry[];
+  traders: Trader[];
+  copyTrades: CopyTrade[];
+  edgeMarkets: MarketEdge[];
   hotTokens: number;
   restarts: number;
   updatedAt: string;
@@ -90,4 +133,7 @@ export type WsEvent =
   | { event: 'positions'; data: Position[] }
   | { event: 'trade'; data: Trade }
   | { event: 'signals'; data: Signal[] }
-  | { event: 'markets'; data: Market[] };
+  | { event: 'markets'; data: Market[] }
+  | { event: 'traders'; data: Trader[] }
+  | { event: 'copy_trades'; data: CopyTrade[] }
+  | { event: 'edge_markets'; data: MarketEdge[] };

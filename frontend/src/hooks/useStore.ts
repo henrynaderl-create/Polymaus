@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import type { BotStatus, Portfolio, Position, Trade, Signal, Market } from '@/types';
+import type { BotStatus, Portfolio, Position, Trade, Signal, Market, Trader, CopyTrade, MarketEdge } from '@/types';
 import { api } from '@/services/api';
 
 export interface AppState {
@@ -9,6 +9,9 @@ export interface AppState {
   trades: Trade[];
   signals: Signal[];
   markets: Market[];
+  traders: Trader[];
+  copyTrades: CopyTrade[];
+  edgeMarkets: MarketEdge[];
   connected: boolean;
   loading: boolean;
   error: string | null;
@@ -21,6 +24,9 @@ const INITIAL: AppState = {
   trades: [],
   signals: [],
   markets: [],
+  traders: [],
+  copyTrades: [],
+  edgeMarkets: [],
   connected: false,
   loading: true,
   error: null,
@@ -51,6 +57,19 @@ export function useStore() {
           return { ...s, signals: msg.data as Signal[] };
         case 'markets':
           return { ...s, markets: msg.data as Market[] };
+        case 'traders':
+          return { ...s, traders: msg.data as Trader[] };
+        case 'copy_trades': {
+          const ct = msg.data as CopyTrade;
+          // single copy trade pushed as event
+          if (ct && !Array.isArray(ct)) {
+            const next = [ct, ...s.copyTrades].slice(0, 100);
+            return { ...s, copyTrades: next };
+          }
+          return { ...s, copyTrades: msg.data as CopyTrade[] };
+        }
+        case 'edge_markets':
+          return { ...s, edgeMarkets: msg.data as MarketEdge[] };
         default:
           return s;
       }
@@ -70,6 +89,9 @@ export function useStore() {
           trades: status.recentTrades,
           signals: status.signals,
           markets: status.markets,
+          traders: status.traders ?? [],
+          copyTrades: status.copyTrades ?? [],
+          edgeMarkets: status.edgeMarkets ?? [],
           loading: false,
         }));
       })

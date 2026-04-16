@@ -1,10 +1,11 @@
 import React, { useMemo } from 'react';
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from 'recharts';
-import type { Market, Signal } from '@/types';
+import type { Market, Signal, MarketEdge } from '@/types';
 
 interface Props {
   markets: Market[];
   signals: Signal[];
+  edgeMarkets?: MarketEdge[];
 }
 
 function Sparkline({ data, positive }: { data: number[]; positive: boolean }) {
@@ -37,7 +38,7 @@ function dayLabel(i: number) {
   return `DAY ${i + 1}`;
 }
 
-export function MarketGrid({ markets, signals }: Props) {
+export function MarketGrid({ markets, signals, edgeMarkets = [] }: Props) {
   const items = markets.slice(0, 6);
 
   const signalMap = useMemo(() => {
@@ -46,14 +47,22 @@ export function MarketGrid({ markets, signals }: Props) {
     return m;
   }, [signals]);
 
+  const edgeMap = useMemo(() => {
+    const m: Record<string, MarketEdge> = {};
+    for (const e of edgeMarkets) m[e.conditionId] = e;
+    return m;
+  }, [edgeMarkets]);
+
   return (
     <div className="grid grid-cols-3 gap-px h-full bg-term-border">
       {items.map((mkt, i) => {
         const sig = signalMap[mkt.conditionId];
+        const edge = edgeMap[mkt.conditionId];
         const history = genHistory(i + (mkt.yesPrice * 100 | 0));
         const positive = mkt.yesPrice > 0.5;
         const pct = Math.round(mkt.yesPrice * 100);
         const vol = mkt.volume24h;
+        const edgeScore = edge ? edge.edgeScore : null;
 
         return (
           <div key={mkt.conditionId} className="bg-term-card flex flex-col px-2 pt-2 pb-1 gap-1">
@@ -76,9 +85,15 @@ export function MarketGrid({ markets, signals }: Props) {
 
             {/* Stats row */}
             <div className="flex items-center justify-between text-[10px]">
-              <span className={`font-bold ${positive ? 't-pos' : 't-neg'}`}>
-                {positive ? '+' : ''}{(pct - 50).toFixed(1)}% EDGE
-              </span>
+              {edgeScore !== null ? (
+                <span className={`font-bold ${edgeScore >= 0.30 ? 't-pos' : edgeScore >= 0.15 ? 'text-term-amber' : 't-neg'}`}>
+                  {(edgeScore * 100).toFixed(1)}% EDGE
+                </span>
+              ) : (
+                <span className={`font-bold ${positive ? 't-pos' : 't-neg'}`}>
+                  {positive ? '+' : ''}{(pct - 50).toFixed(1)}% EDGE
+                </span>
+              )}
               <span className="t-dim">YES {pct}¢</span>
               <span className="t-dim">VOL ${(vol / 1000).toFixed(0)}k</span>
             </div>
