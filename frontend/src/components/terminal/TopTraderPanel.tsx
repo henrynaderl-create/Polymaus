@@ -87,6 +87,24 @@ export function TopTraderPanel({ traders, copyTrades }: Props) {
             </div>
           ))
         )}
+
+        {/* Last action row */}
+        {displayed.map(t => t.lastAction ? (
+          <div
+            key={`act-${t.address}`}
+            className="flex items-center gap-1.5 px-2 py-[2px] border-b border-term-border/20 text-[9px] t-dim"
+          >
+            <span className="w-5 shrink-0" />
+            <span className="w-16 shrink-0 font-mono">{shortAddr(t.address)}</span>
+            <span className={`shrink-0 font-bold ${t.lastAction?.includes('YES') ? 'text-term-green' : t.lastAction?.includes('NO') ? 'text-term-red' : 'text-term-amber'}`}>
+              {t.lastAction}
+            </span>
+            {t.lastMarket && (
+              <span className="flex-1 truncate opacity-60 pl-1">{t.lastMarket.slice(0, 24)}</span>
+            )}
+          </div>
+        ) : null
+        )}
       </div>
 
       {/* ── Recent copy trades ── */}

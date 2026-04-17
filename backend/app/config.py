@@ -64,10 +64,6 @@ class Settings(BaseSettings):
     demo_starting_balance: float = 10_000.0
     demo_slippage_bps: int = 10
 
-    # ── Test Mode (forces random trades to validate full pipeline) ─────────
-    test_mode: bool = True
-    test_trade_interval_cycles: int = 6   # force trade every N price-poll cycles (6×15s=90s)
-
     # ── Server ────────────────────────────────────────────────
     host: str = "0.0.0.0"
     port: int = 8000

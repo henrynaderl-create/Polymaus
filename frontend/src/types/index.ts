@@ -81,6 +81,8 @@ export interface Trader {
   recentPnl: number;
   copyCount: number;
   isFollowed: boolean;
+  lastAction?: string;
+  lastMarket?: string;
 }
 
 export interface CopyTrade {
