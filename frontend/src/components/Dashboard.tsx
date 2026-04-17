@@ -74,7 +74,11 @@ export function Dashboard() {
 
           {/* Equity chart — middle 28% */}
           <div className="h-[28%] min-h-0">
-            <EquityChart trades={state.trades} startBalance={startBalance} />
+            <EquityChart
+              trades={state.trades}
+              startBalance={startBalance}
+              portfolio={state.portfolio}
+            />
           </div>
 
           {/* Active positions — bottom 32% */}

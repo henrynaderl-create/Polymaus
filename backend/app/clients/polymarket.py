@@ -156,48 +156,84 @@ class PolymarketClient:
         return await self._synthetic_leaderboard(limit)
 
     async def _synthetic_leaderboard(self, limit: int = 50) -> list[dict]:
-        """Synthesize a leaderboard from the largest active position holders."""
-        try:
-            resp = await self._http.get(
-                f"{settings.gamma_url}/positions",
-                params={
-                    "sizeThreshold": "50",
-                    "order": "currentValue",
-                    "ascending": "false",
-                    "limit": 200,
-                },
-                timeout=10.0,
-            )
-            if resp.status_code == 200:
-                positions = resp.json()
-                if isinstance(positions, list):
-                    by_user: dict[str, dict] = {}
-                    for p in positions:
+        """Synthesize a leaderboard from largest active position holders.
+
+        Tries multiple Gamma API patterns to find user addresses.
+        """
+        import logging as _logging
+        _log = _logging.getLogger("polymaus.client")
+        by_user: dict[str, dict] = {}
+
+        # Attempt 1: positions with high size threshold
+        position_params_list = [
+            {"sizeThreshold": "100", "order": "currentValue", "ascending": "false", "limit": 200},
+            {"sizeThreshold": "50",  "order": "currentValue", "ascending": "false", "limit": 200},
+            {"limit": 100},
+        ]
+        for params in position_params_list:
+            try:
+                resp = await self._http.get(
+                    f"{settings.gamma_url}/positions",
+                    params=params,
+                    timeout=10.0,
+                )
+                if resp.status_code == 200:
+                    positions = resp.json()
+                    if isinstance(positions, list) and positions:
+                        _log.info("Synthetic leaderboard: positions endpoint returned %d entries",
+                                  len(positions))
+                        for p in positions:
+                            addr = (
+                                p.get("user") or p.get("proxyWallet")
+                                or p.get("address") or p.get("userId") or ""
+                            )
+                            if not addr or len(addr) < 10:
+                                continue
+                            if addr not in by_user:
+                                by_user[addr] = {"address": addr, "profit": 0.0,
+                                                 "positions": 0, "winRate": 0.0}
+                            val = float(
+                                p.get("currentValue") or p.get("value")
+                                or p.get("size") or 0
+                            )
+                            by_user[addr]["profit"] += val
+                            by_user[addr]["positions"] += 1
+                        if by_user:
+                            break
+            except Exception as exc:
+                _log.debug("Synthetic lb positions attempt failed: %s", exc)
+
+        # Attempt 2: data-api activity feed
+        if not by_user:
+            try:
+                resp = await self._http.get(
+                    "https://data-api.polymarket.com/activity",
+                    params={"limit": 100},
+                    timeout=8.0,
+                )
+                if resp.status_code == 200:
+                    activity = resp.json()
+                    items = activity if isinstance(activity, list) else activity.get("data", [])
+                    for item in items:
                         addr = (
-                            p.get("user") or p.get("proxyWallet")
-                            or p.get("address") or ""
+                            item.get("user") or item.get("proxyWallet")
+                            or item.get("address") or ""
                         )
                         if not addr or len(addr) < 10:
                             continue
                         if addr not in by_user:
-                            by_user[addr] = {
-                                "address": addr,
-                                "profit": 0.0,
-                                "positions": 0,
-                                "winRate": 0.0,
-                            }
-                        val = float(p.get("currentValue") or p.get("value") or 0)
-                        by_user[addr]["profit"] += val
+                            by_user[addr] = {"address": addr, "profit": 0.0,
+                                             "positions": 0, "winRate": 0.0}
                         by_user[addr]["positions"] += 1
-                    ranked = sorted(
-                        by_user.values(), key=lambda x: x["profit"], reverse=True
-                    )
-                    return ranked[:limit]
-        except Exception as exc:
-            import logging
-            logging.getLogger("polymaus.client").warning(
-                "Synthetic leaderboard failed: %s", exc
-            )
+            except Exception as exc:
+                _log.debug("Synthetic lb activity attempt failed: %s", exc)
+
+        if by_user:
+            ranked = sorted(by_user.values(), key=lambda x: x["profit"], reverse=True)
+            _log.info("Synthetic leaderboard built: %d unique traders", len(ranked))
+            return ranked[:limit]
+
+        _log.warning("Synthetic leaderboard: all approaches failed, returning empty")
         return []
 
     async def get_trader_positions(self, address: str) -> list[dict]:

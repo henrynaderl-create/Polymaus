@@ -33,12 +33,14 @@ export interface Trade {
   outcome: string;
   price: number;
   size: number;
+  size_usd?: number;
   shares: number;
   pnl?: number;
   strategy: string;
   ts: string;
   demo?: boolean;
   exitReason?: string;
+  traderAddress?: string;
 }
 
 export interface Signal {

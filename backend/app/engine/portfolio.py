@@ -86,7 +86,7 @@ class Portfolio:
                     "current_price": price,
                     "unrealised_pnl": 0.0,
                     "strategy": strategy,
-                    "opened_at": datetime.utcnow().isoformat(),
+                    "opened_at": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
                 }
             self.balance -= size_usd
             trade = {
@@ -95,11 +95,12 @@ class Portfolio:
                 "market_id": market_id,
                 "question": question,
                 "outcome": outcome,
-                "price": price,
-                "size": size_usd,
-                "shares": shares,
+                "price": round(price, 4),
+                "size": round(size_usd, 2),
+                "size_usd": round(size_usd, 2),
+                "shares": round(shares, 4),
                 "strategy": strategy,
-                "ts": datetime.utcnow().isoformat(),
+                "ts": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
             }
             self.trades.append(trade)
             return trade
@@ -128,12 +129,13 @@ class Portfolio:
                 "market_id": pos["market_id"],
                 "question": pos["question"],
                 "outcome": pos["outcome"],
-                "price": close_price,
-                "size": proceeds,
-                "shares": shares,
+                "price": round(close_price, 4),
+                "size": round(proceeds, 2),
+                "size_usd": round(proceeds, 2),
+                "shares": round(shares, 4),
                 "pnl": round(pnl, 4),
                 "strategy": pos["strategy"],
-                "ts": datetime.utcnow().isoformat(),
+                "ts": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z",
             }
             self.trades.append(trade)
             return trade

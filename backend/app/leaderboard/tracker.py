@@ -41,19 +41,30 @@ class LeaderboardTracker:
         """Fetch leaderboard and compute hot tokens."""
         try:
             raw = await self._client.get_leaderboard(limit=self.TOP_N)
+            if raw:
+                logger.info("Leaderboard API returned %d traders", len(raw))
+            else:
+                logger.warning("Leaderboard API returned empty — using synthetic fallback")
             self._last_snapshot = raw[:self.TOP_N]
             snapshots = await self._fetch_positions(raw[:self.TOP_N])
             self._leaders = snapshots
             self._hot_tokens = self._compute_hot_tokens(snapshots)
             followed_count = sum(1 for s in snapshots if s.is_followed)
             logger.info(
-                "Leaderboard refreshed: %d traders fetched, %d followed (trust >= 0.40)",
+                "Leaderboard refreshed: %d traders, %d followed (trust >= 0.40), "
+                "%d hot tokens",
                 len(snapshots),
                 followed_count,
+                len(self._hot_tokens),
             )
+            for i, s in enumerate(snapshots[:5]):
+                logger.info(
+                    "  Trader #%d %s profit=$%.0f trust=%.2f positions=%d",
+                    s.rank, s.address[:12], s.profit, s.trust_score, len(s.positions)
+                )
         except Exception as exc:
             # Never crash the bot on leaderboard failure
-            logger.warning("Leaderboard refresh failed: %s", exc)
+            logger.warning("Leaderboard refresh failed: %s", exc, exc_info=True)
 
     async def _fetch_positions(self, traders: list[dict]) -> list[TraderSnapshot]:
         tasks = []
