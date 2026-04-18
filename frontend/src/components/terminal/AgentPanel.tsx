@@ -9,20 +9,34 @@ interface Props {
 }
 
 const AGENTS = [
-  { id: 'AGT-01', key: 'contrarian',    label: 'ContrarianEdge',  desc: 'Buy NO > 70% YES' },
-  { id: 'AGT-02', key: 'market_maker',  label: 'PriceImpact',     desc: 'Spread capture' },
-  { id: 'AGT-03', key: 'signal',        label: 'FedMatch',        desc: 'Signal fusion' },
-  { id: 'AGT-04', key: 'adaptive',      label: 'WeatherEdge',     desc: 'Mirror leaders' },
+  { id: 'AGT-01', key: 'contrarian',    label: 'ContrarianEdge', desc: 'Buy NO on >70% YES' },
+  { id: 'AGT-02', key: 'market_maker',  label: 'PriceImpact',    desc: 'Spread capture' },
+  { id: 'AGT-03', key: 'signal',        label: 'FedMatch',       desc: 'Signal fusion' },
+  { id: 'AGT-04', key: 'adaptive',      label: 'WeatherEdge',    desc: 'Mirror leaders' },
+  { id: 'AGT-05', key: 'momentum',      label: 'Momentum',       desc: 'Trend following' },
 ];
 
-function seedPnl(key: string, base: number): number {
-  const seeds: Record<string, number> = {
-    contrarian: base * 0.45,
-    market_maker: base * 0.28,
-    signal: base * 0.19,
-    adaptive: base * 0.08,
-  };
-  return seeds[key] ?? 0;
+const SEED: Record<string, number> = {
+  contrarian: 0.45, market_maker: 0.28, signal: 0.19, adaptive: 0.08, momentum: 0.12,
+};
+
+function LatencyBar() {
+  const bars = Array.from({ length: 24 }, () => ({
+    h: Math.floor(Math.random() * 50 + 10),
+    slow: Math.random() < 0.1,
+  }));
+  return (
+    <div className="flex items-end gap-0.5 h-8">
+      {bars.map((b, i) => (
+        <div key={i} className="flex-1 rounded-sm"
+          style={{
+            height: `${b.h}%`,
+            background: b.slow ? '#EF4444' : '#FF6B35',
+            opacity: 0.3 + i / bars.length * 0.7,
+          }} />
+      ))}
+    </div>
+  );
 }
 
 export function AgentPanel({ status, portfolio, onStrategyChange }: Props) {
@@ -34,80 +48,61 @@ export function AgentPanel({ status, portfolio, onStrategyChange }: Props) {
   };
 
   return (
-    <div className="flex flex-col h-full panel">
-      {/* LMSR Engine */}
-      <div className="panel-header">LMSR ENGINE</div>
-      <div className="px-2 py-2 border-b border-term-border text-[10px] font-mono space-y-0.5">
-        <div className="text-term-cyan">C(q) = b · ln(Σ e<sup>q/b</sup>)</div>
-        <div className="t-dim">&gt; softmax pricing | b=100,000</div>
-        <div className="grid grid-cols-2 gap-x-4 mt-1">
-          <Row label="Conditions"    value={String(status?.markets?.length ?? 0)} />
-          <Row label="Arb Extracted" value={`$${Math.abs(totalPnl * 0.3).toFixed(1)}m`} />
-          <Row label="Kelly Mode"    value="quarter-kelly" />
-          <Row label="Hot Tokens"    value={String(status?.hotTokens ?? 0)} />
-        </div>
+    <div className="flex flex-col h-full">
+      <div className="card-header">
+        <span className="card-title">Agent Swarm</span>
+        <span className="badge badge-orange">LMSR</span>
       </div>
 
-      {/* Agent Swarm */}
-      <div className="panel-header">AGENT SWARM</div>
-      <div className="flex-1 overflow-y-auto">
-        {AGENTS.map((a) => {
+      {/* Quick stats */}
+      <div className="px-4 py-2 border-b border-white/[0.04] grid grid-cols-2 gap-x-4 gap-y-0.5">
+        {[
+          ['Conditions', String(status?.markets?.length ?? 0)],
+          ['Arb', `$${Math.abs(totalPnl * 0.3).toFixed(1)}`],
+          ['Kelly', 'quarter-kelly'],
+          ['Hot Tokens', String(status?.hotTokens ?? 0)],
+        ].map(([k, v]) => (
+          <div key={k} className="flex justify-between text-xs py-0.5">
+            <span className="text-white/30">{k}</span>
+            <span className="text-white/70 font-medium">{v}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Agent list */}
+      <div className="flex-1 overflow-y-auto py-1">
+        {AGENTS.map(a => {
           const isActive = status?.strategy === a.key;
-          const pnl = seedPnl(a.key, Math.abs(totalPnl) || 50);
+          const pnl = Math.abs(totalPnl || 50) * (SEED[a.key] ?? 0);
           return (
             <button
               key={a.key}
               onClick={() => handleSwitch(a.key)}
-              className={`w-full flex items-center gap-2 px-2 py-[6px] border-b border-term-border/30 hover:bg-term-card text-left transition-colors ${
-                isActive ? 'bg-term-card' : ''
-              }`}
+              className="w-full flex items-center gap-3 px-4 py-2.5 border-b border-white/[0.04] hover:bg-white/[0.03] text-left transition-colors"
+              style={isActive ? { background: 'rgba(255,107,53,0.06)' } : {}}
             >
-              <span className={`text-[9px] shrink-0 ${isActive ? 'text-term-bright' : 't-dim'}`}>{a.id}</span>
-              <span className={`flex-1 text-[10px] ${isActive ? 'text-term-green' : 't-dim'}`}>{a.label}</span>
-              <span className={`text-[10px] font-bold ${pnl >= 0 ? 't-pos' : 't-neg'}`}>
-                {pnl >= 0 ? '+' : ''}${pnl.toFixed(0)}
+              <span className="text-[10px] font-mono text-white/25 shrink-0 w-12">{a.id}</span>
+              <div className="flex-1 min-w-0">
+                <div className={`text-xs font-semibold ${isActive ? 'text-white' : 'text-white/55'}`}>{a.label}</div>
+                <div className="text-[10px] text-white/25 truncate">{a.desc}</div>
+              </div>
+              <span className={`text-xs font-bold shrink-0 ${pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                +${pnl.toFixed(0)}
               </span>
-              {isActive && <span className="blink-dot" />}
+              {isActive && (
+                <span className="w-1.5 h-1.5 rounded-full shrink-0 animate-pulse2"
+                  style={{ background: '#FF6B35' }} />
+              )}
             </button>
           );
         })}
       </div>
 
-      {/* Latency monitor */}
-      <div className="panel-header">LATENCY MONITOR</div>
-      <div className="px-2 py-1">
+      {/* Latency */}
+      <div className="border-t border-white/[0.04] px-4 py-2">
+        <div className="text-white/25 text-[10px] uppercase tracking-widest mb-1.5">Latency</div>
         <LatencyBar />
       </div>
-    </div>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between py-0.5">
-      <span className="t-dim">{label}</span>
-      <span className="text-term-green">{value}</span>
-    </div>
-  );
-}
-
-function LatencyBar() {
-  const bars = Array.from({ length: 24 }, (_, i) => ({
-    h: Math.floor(Math.random() * 40 + 4),
-    bad: Math.random() < 0.1,
-  }));
-  return (
-    <div className="flex items-end gap-px h-8">
-      {bars.map((b, i) => (
-        <div key={i}
-          className="flex-1 transition-all duration-300"
-          style={{
-            height: `${b.h}%`,
-            background: b.bad ? '#ff3333' : '#00ff41',
-            opacity: 0.6 + i / bars.length * 0.4,
-          }}
-        />
-      ))}
     </div>
   );
 }

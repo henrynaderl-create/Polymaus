@@ -17,34 +17,56 @@ export function BotController({ status, onRefresh }: Props) {
   };
 
   return (
-    <div className="flex items-center gap-3 px-3 py-1 panel border-t border-term-border shrink-0 text-[10px]">
-      <button onClick={toggle} disabled={busy}
-        className={`px-3 py-1 border font-bold tracking-widest transition-colors ${
-          running
-            ? 'text-term-red border-term-red/50 hover:bg-term-red/10'
-            : 'text-term-green border-term-green/50 hover:bg-term-green/10'
-        } ${busy ? 'opacity-40 cursor-not-allowed' : ''}`}>
-        {busy ? '...' : running ? '■ STOP BOT' : '▶ START BOT'}
+    <div
+      className="h-12 shrink-0 flex items-center gap-4 px-6 border-t border-white/[0.06]"
+      style={{ background: '#0F0F16' }}
+    >
+      <button
+        onClick={toggle}
+        disabled={busy}
+        className="flex items-center gap-2 px-4 py-1.5 rounded-xl text-sm font-semibold transition-all duration-150 disabled:opacity-40"
+        style={{
+          background: running
+            ? 'rgba(239,68,68,0.12)'
+            : 'linear-gradient(135deg, #FF4500, #FF8C00)',
+          border: running ? '1px solid rgba(239,68,68,0.25)' : 'none',
+          color: running ? '#EF4444' : '#fff',
+          boxShadow: running ? 'none' : '0 0 16px rgba(255,107,53,0.25)',
+        }}
+      >
+        <span>{running ? '■' : '▶'}</span>
+        <span>{busy ? 'Updating...' : running ? 'Stop Bot' : 'Start Bot'}</span>
       </button>
 
-      <span className="t-dim">|</span>
-      <span className="t-label">STRATEGY:</span>
-      <span className="text-term-green font-bold">{(status?.strategy ?? '—').toUpperCase()}</span>
+      <div className="w-px h-5 bg-white/[0.06]" />
+      <div className="flex items-center gap-1.5 text-xs">
+        <span className="text-white/30">Strategy</span>
+        <span className="text-white font-medium uppercase">{status?.strategy ?? '—'}</span>
+      </div>
 
-      <span className="t-dim">|</span>
-      <span className="t-label">RESTARTS:</span>
-      <span className="text-term-green">{status?.restarts ?? 0}</span>
+      <div className="w-px h-5 bg-white/[0.06]" />
+      <div className="flex items-center gap-1.5 text-xs">
+        <span className="text-white/30">Restarts</span>
+        <span className="text-white font-medium">{status?.restarts ?? 0}</span>
+      </div>
 
-      <span className="t-dim">|</span>
-      <span className="t-label">HOT TOKENS:</span>
-      <span className="text-term-amber">{status?.hotTokens ?? 0}</span>
+      <div className="w-px h-5 bg-white/[0.06]" />
+      <div className="flex items-center gap-1.5 text-xs">
+        <span className="text-white/30">Open Pos.</span>
+        <span className="text-emerald-400 font-medium">{status?.portfolio?.openPositions ?? 0}</span>
+      </div>
 
-      <span className="t-dim">|</span>
-      <span className="t-label">OPEN POS:</span>
-      <span className="text-term-green">{status?.portfolio?.openPositions ?? 0}</span>
-
-      <div className="ml-auto t-dim">
-        polymaus v1.0 // {status?.mode === 'demo' ? '🟡 DEMO — no real capital' : '🔴 LIVE'}
+      <div className="ml-auto flex items-center gap-2 text-xs text-white/30">
+        <span>Polymaus v1.0</span>
+        <span
+          className="px-1.5 py-0.5 rounded text-[10px] font-semibold"
+          style={{
+            background: status?.mode === 'demo' ? 'rgba(245,158,11,0.12)' : 'rgba(239,68,68,0.12)',
+            color: status?.mode === 'demo' ? '#F59E0B' : '#EF4444',
+          }}
+        >
+          {status?.mode === 'demo' ? 'DEMO' : 'LIVE'}
+        </span>
       </div>
     </div>
   );

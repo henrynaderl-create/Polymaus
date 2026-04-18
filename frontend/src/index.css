@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -9,70 +9,109 @@
 
   html, body, #root {
     height: 100%;
-    background: #020b04;
-    color: #00ff41;
-    font-family: 'JetBrains Mono', 'Courier New', monospace;
-    font-size: 11px;
+    background: #0B0B0F;
+    color: #FFFFFF;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 14px;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     overflow: hidden;
   }
 
-  /* Scrollbars */
-  ::-webkit-scrollbar { width: 3px; height: 3px; }
-  ::-webkit-scrollbar-track { background: #020b04; }
-  ::-webkit-scrollbar-thumb { background: #0d2e12; border-radius: 2px; }
-
-  /* Scanline overlay */
-  body::after {
-    content: '';
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 9999;
-    background: repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 2px,
-      rgba(0, 255, 65, 0.015) 2px,
-      rgba(0, 255, 65, 0.015) 4px
-    );
-  }
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
 }
 
 @layer components {
-  .panel {
-    @apply bg-term-panel border border-term-border;
+  /* ── Card system ── */
+  .card {
+    position: relative;
+    @apply bg-surface-card border border-white/[0.06] rounded-2xl shadow-card overflow-hidden;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(255,255,255,0.025) 0%, transparent 50%);
+    pointer-events: none;
+    border-radius: inherit;
+  }
+  .card-hover {
+    @apply transition-all duration-200 hover:border-white/[0.10] cursor-pointer;
+  }
+  .card-header {
+    @apply px-5 py-4 border-b border-white/[0.06] flex items-center justify-between;
+  }
+  .card-title {
+    @apply text-sm font-semibold text-white/80 tracking-wide;
   }
 
-  .panel-header {
-    @apply px-2 py-1 border-b border-term-border text-term-dim text-[10px] tracking-widest uppercase;
+  /* ── KPI ── */
+  .kpi-label {
+    @apply text-xs font-medium tracking-widest uppercase text-white/40;
+  }
+  .kpi-value {
+    @apply text-2xl font-bold text-white leading-none;
   }
 
-  .t-label {
-    @apply text-term-dim text-[10px] tracking-widest uppercase;
+  /* ── Navigation ── */
+  .nav-item {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium
+           transition-all duration-150 cursor-pointer text-white/40 select-none;
+  }
+  .nav-item:hover { @apply bg-white/[0.04] text-white/70; }
+  .nav-item.active {
+    background: rgba(255, 107, 53, 0.12);
+    color: #FF6B35;
+    box-shadow: inset 0 0 0 1px rgba(255,107,53,0.2);
   }
 
-  .t-val {
-    @apply text-term-green font-semibold;
+  /* ── Gradient text ── */
+  .gradient-text {
+    background: linear-gradient(135deg, #FF6B35, #FF9500);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
 
-  .t-pos { @apply text-term-green; }
-  .t-neg { @apply text-term-red; }
-  .t-warn { @apply text-term-amber; }
-  .t-dim  { @apply text-term-dim; }
+  /* ── Status ── */
+  .val-pos   { @apply text-emerald-400; }
+  .val-neg   { @apply text-red-400; }
+  .val-warn  { @apply text-amber-400; }
+  .val-muted { @apply text-white/40; }
+  .val-info  { @apply text-blue-400; }
 
-  .blink-dot {
-    @apply inline-block w-1.5 h-1.5 rounded-full bg-term-bright animate-pulse2;
-  }
+  /* ── Badges ── */
+  .badge         { @apply text-[10px] font-semibold px-2 py-0.5 rounded-md tracking-wide; }
+  .badge-green   { @apply bg-emerald-500/15 text-emerald-400; }
+  .badge-red     { @apply bg-red-500/15 text-red-400; }
+  .badge-orange  { @apply bg-orange-500/15 text-orange-400; }
+  .badge-blue    { @apply bg-blue-500/15 text-blue-400; }
+  .badge-purple  { @apply bg-purple-500/15 text-purple-400; }
+  .badge-muted   { @apply bg-white/[0.06] text-white/50; }
+  .badge-cyan    { @apply bg-cyan-500/15 text-cyan-400; }
+
+  /* ── Data rows ── */
+  .data-row   { @apply flex items-center justify-between py-2.5 border-b border-white/[0.04] text-sm last:border-0; }
+  .data-label { @apply text-white/40 text-xs font-medium uppercase tracking-wide; }
+  .data-value { @apply text-white font-medium text-sm; }
+
+  /* ── Live dot ── */
+  .live-dot     { @apply inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse2 shrink-0; }
+  .live-dot-off { @apply inline-block w-2 h-2 rounded-full bg-white/20 shrink-0; }
+
+  /* ── Legacy compat ── */
+  .panel        { @apply bg-surface-card border border-white/[0.06]; }
+  .panel-header { @apply px-3 py-2 border-b border-white/[0.06] text-white/30 text-[10px] tracking-widest uppercase font-mono; }
+  .t-pos   { @apply text-emerald-400; }
+  .t-neg   { @apply text-red-400; }
+  .t-warn  { @apply text-amber-400; }
+  .t-dim   { @apply text-white/30; }
+  .t-label { @apply text-white/30 text-[10px] tracking-widest uppercase font-mono; }
+  .t-val   { @apply text-emerald-400 font-semibold; }
+  .blink-dot { @apply inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse2; }
+  .text-glow { text-shadow: 0 0 12px rgba(255,107,53,0.6); }
+  .accent-glow { box-shadow: 0 0 0 1px rgba(255,107,53,0.25), 0 4px 20px rgba(255,107,53,0.1); }
 }
-
-/* Glow text utility */
-.text-glow { text-shadow: 0 0 8px currentColor; }
-
-/* Thin divider */
-.t-divider { border-color: #0d2e12; }
-
-/* Status badges */
-.badge-open     { @apply text-term-green border border-term-green/40 px-1; }
-.badge-settling { @apply text-term-amber border border-term-amber/40 px-1; }
-.badge-closed   { @apply text-term-dim   border border-term-dim/40   px-1; }

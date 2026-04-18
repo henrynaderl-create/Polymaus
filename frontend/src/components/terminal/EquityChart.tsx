@@ -13,9 +13,10 @@ const CustomTooltip = ({ active, payload }: any) => {
   const v = payload[0].value as number;
   const pnl = v - (payload[0].payload?.start ?? v);
   return (
-    <div className="bg-term-panel border border-term-border px-2 py-1 text-[10px] font-mono">
-      <div className="text-term-bright">${v.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
-      <div className={pnl >= 0 ? 'text-term-green' : 'text-red-400'}>
+    <div className="rounded-xl border border-white/[0.08] px-3 py-2 text-xs"
+         style={{ background: '#1A1A26', backdropFilter: 'blur(8px)' }}>
+      <div className="text-white font-semibold font-mono">${v.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+      <div className={pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}>
         {pnl >= 0 ? '+' : ''}${pnl.toFixed(2)}
       </div>
     </div>
@@ -33,92 +34,80 @@ export function EquityChart({ trades, startBalance, portfolio }: Props) {
         const label = isNaN(ts.getTime())
           ? `T+${i}`
           : `${String(ts.getHours()).padStart(2,'0')}:${String(ts.getMinutes()).padStart(2,'0')}`;
-        return {
-          i,
-          pnl: parseFloat(cum.toFixed(2)),
-          equity: parseFloat((startBalance + cum).toFixed(2)),
-          start: startBalance,
-          label,
-        };
+        return { i, pnl: parseFloat(cum.toFixed(2)), equity: parseFloat((startBalance + cum).toFixed(2)), start: startBalance, label };
       });
 
-    // Genesis point
     const genesis = { i: -1, pnl: 0, equity: startBalance, start: startBalance, label: 'START' };
     const base = [genesis, ...pts];
 
-    // Append a "live" point using current portfolio equity (includes unrealised PnL)
     if (portfolio?.equity && portfolio.equity !== startBalance) {
       const now = new Date();
-      const label = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
       base.push({
         i: base.length,
         pnl: parseFloat((portfolio.equity - startBalance).toFixed(2)),
         equity: parseFloat(portfolio.equity.toFixed(2)),
         start: startBalance,
-        label,
+        label: `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`,
       });
     }
-
     return base;
   }, [trades, startBalance, portfolio?.equity]);
 
-  const latest = data[data.length - 1];
-  const isPos = latest.pnl >= 0;
-  const color = isPos ? '#00ff41' : '#ff3333';
-  const liveEquity = portfolio?.equity ?? latest.equity;
+  const latest  = data[data.length - 1];
+  const isPos   = latest.pnl >= 0;
+  const liveEq  = portfolio?.equity ?? latest.equity;
+  const pnlAbs  = liveEq - startBalance;
+  const pnlPct  = ((pnlAbs / startBalance) * 100).toFixed(2);
 
   return (
-    <div className="flex flex-col h-full panel">
-      <div className="panel-header flex items-center justify-between">
-        <span>EQUITY CURVE</span>
+    <div className="flex flex-col h-full">
+      <div className="card-header">
+        <span className="card-title">Equity Curve</span>
         <div className="flex items-center gap-3">
-          <span className="text-term-dim text-[10px]">
-            START ${startBalance.toLocaleString()}
+          <span className="text-white/30 text-xs font-mono">
+            Start ${startBalance.toLocaleString()}
           </span>
-          <span className={`font-bold text-[13px] ${isPos ? 'text-term-green' : 'text-red-400'}`}>
-            {isPos ? '▲' : '▼'} {isPos ? '+' : ''}${(liveEquity - startBalance).toFixed(2)}
+          <span className={`text-xs font-semibold px-2 py-1 rounded-lg ${
+            isPos ? 'text-emerald-400 bg-emerald-500/10' : 'text-red-400 bg-red-500/10'
+          }`}>
+            {isPos ? '+' : ''}${pnlAbs.toFixed(2)} ({isPos ? '+' : ''}{pnlPct}%)
+          </span>
+          <span className="text-white font-bold text-base font-mono">
+            ${liveEq.toLocaleString('en-US', { minimumFractionDigits: 2 })}
           </span>
         </div>
       </div>
 
-      <div className="flex-1 relative">
+      <div className="flex-1 relative px-2 pb-2 min-h-0">
         {data.length < 2 ? (
-          <div className="absolute inset-0 flex items-center justify-center text-term-dim text-[11px] tracking-widest animate-pulse">
-            AWAITING FIRST TRADE...
+          <div className="absolute inset-0 flex items-center justify-center text-white/20 text-sm animate-pulse">
+            Awaiting first trade...
           </div>
         ) : (
-          <>
-            {/* Live equity overlay */}
-            <div className="absolute top-2 right-3 text-right z-10">
-              <div className={`font-bold text-[15px] ${isPos ? 'text-term-green' : 'text-red-400'}`}
-                   style={{ textShadow: `0 0 8px ${color}88` }}>
-                ${liveEquity.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-              </div>
-              {portfolio && (
-                <div className="text-term-dim text-[9px]">
-                  {portfolio.openPositions} open · {portfolio.totalTrades} trades
-                </div>
-              )}
-            </div>
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data} margin={{ top: 16, right: 70, bottom: 16, left: 8 }}>
-                <defs>
-                  <linearGradient id="eqGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%"  stopColor={color} stopOpacity={0.28} />
-                    <stop offset="95%" stopColor={color} stopOpacity={0.02} />
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="label" tick={{ fill: '#1a5c2a', fontSize: 9 }}
-                  tickLine={false} axisLine={false} interval="preserveStartEnd" />
-                <YAxis tick={{ fill: '#1a5c2a', fontSize: 9 }} tickLine={false}
-                  axisLine={false} tickFormatter={v => `$${v.toLocaleString()}`} width={62} />
-                <ReferenceLine y={startBalance} stroke="#0d2e12" strokeDasharray="4 4" />
-                <Tooltip content={<CustomTooltip />} />
-                <Area type="monotone" dataKey="equity" stroke={color} strokeWidth={1.5}
-                  fill="url(#eqGrad)" dot={false} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </>
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+              <defs>
+                <linearGradient id="eqOrange" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%"   stopColor="#FF6B35" stopOpacity={0.3} />
+                  <stop offset="100%" stopColor="#FF6B35" stopOpacity={0.02} />
+                </linearGradient>
+                <linearGradient id="eqRed" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%"   stopColor="#EF4444" stopOpacity={0.3} />
+                  <stop offset="100%" stopColor="#EF4444" stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
+              <XAxis dataKey="label" tick={{ fill: 'rgba(255,255,255,0.2)', fontSize: 9 }}
+                tickLine={false} axisLine={false} interval="preserveStartEnd" />
+              <YAxis tick={{ fill: 'rgba(255,255,255,0.2)', fontSize: 9 }}
+                tickLine={false} axisLine={false}
+                tickFormatter={v => `$${v >= 1000 ? (v/1000).toFixed(1)+'k' : v}`} width={48} />
+              <ReferenceLine y={startBalance} stroke="rgba(255,255,255,0.06)" strokeDasharray="4 4" />
+              <Tooltip content={<CustomTooltip />} />
+              <Area type="monotone" dataKey="equity"
+                stroke={isPos ? '#FF6B35' : '#EF4444'} strokeWidth={2}
+                fill={isPos ? 'url(#eqOrange)' : 'url(#eqRed)'} dot={false} />
+            </AreaChart>
+          </ResponsiveContainer>
         )}
       </div>
     </div>

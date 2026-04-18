@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { AreaChart, Area, ResponsiveContainer, Tooltip } from 'recharts';
+import { AreaChart, Area, ResponsiveContainer } from 'recharts';
 import type { Market, Signal, MarketEdge } from '@/types';
 
 interface Props {
@@ -8,34 +8,30 @@ interface Props {
   edgeMarkets?: MarketEdge[];
 }
 
-function Sparkline({ data, positive }: { data: number[]; positive: boolean }) {
+function Sparkline({ data, color }: { data: number[]; color: string }) {
   const chartData = data.map((v, i) => ({ i, v }));
   return (
     <ResponsiveContainer width="100%" height={36}>
       <AreaChart data={chartData} margin={{ top: 2, right: 0, bottom: 0, left: 0 }}>
         <defs>
-          <linearGradient id={`sg${positive}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%"  stopColor={positive ? '#00ff41' : '#ff3333'} stopOpacity={0.3} />
-            <stop offset="95%" stopColor={positive ? '#00ff41' : '#ff3333'} stopOpacity={0} />
+          <linearGradient id={`sg-${color.replace('#','')}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%"  stopColor={color} stopOpacity={0.3} />
+            <stop offset="95%" stopColor={color} stopOpacity={0} />
           </linearGradient>
         </defs>
-        <Area type="monotone" dataKey="v" stroke={positive ? '#00ff41' : '#ff3333'}
-          strokeWidth={1} fill={`url(#sg${positive})`} dot={false} />
+        <Area type="monotone" dataKey="v" stroke={color} strokeWidth={1.5}
+          fill={`url(#sg-${color.replace('#','')})`} dot={false} />
       </AreaChart>
     </ResponsiveContainer>
   );
 }
 
-function genHistory(seed: number, len = 20): number[] {
+function genHistory(seed: number): number[] {
   let v = 0.3 + (seed % 5) * 0.1;
-  return Array.from({ length: len }, () => {
+  return Array.from({ length: 20 }, () => {
     v = Math.max(0.02, Math.min(0.98, v + (Math.random() - 0.48) * 0.04));
     return v;
   });
-}
-
-function dayLabel(i: number) {
-  return `DAY ${i + 1}`;
 }
 
 export function MarketGrid({ markets, signals, edgeMarkets = [] }: Props) {
@@ -54,69 +50,89 @@ export function MarketGrid({ markets, signals, edgeMarkets = [] }: Props) {
   }, [edgeMarkets]);
 
   return (
-    <div className="grid grid-cols-3 gap-px h-full bg-term-border">
-      {items.map((mkt, i) => {
-        const sig = signalMap[mkt.conditionId];
-        const edge = edgeMap[mkt.conditionId];
-        const history = genHistory(i + (mkt.yesPrice * 100 | 0));
-        const positive = mkt.yesPrice > 0.5;
-        const pct = Math.round(mkt.yesPrice * 100);
-        const vol = mkt.volume24h;
-        const edgeScore = edge ? edge.edgeScore : null;
+    <div className="flex flex-col h-full">
+      <div className="card-header">
+        <span className="card-title">Market Opportunities</span>
+        <span className="badge badge-muted">{items.length} ACTIVE</span>
+      </div>
+      <div className="flex-1 grid grid-cols-3 gap-px bg-white/[0.04] overflow-hidden">
+        {items.map((mkt, i) => {
+          const sig  = signalMap[mkt.conditionId];
+          const edge = edgeMap[mkt.conditionId];
+          const history = genHistory(i + (mkt.yesPrice * 100 | 0));
+          const positive  = mkt.yesPrice > 0.5;
+          const pct       = Math.round(mkt.yesPrice * 100);
+          const edgeScore = edge?.edgeScore ?? null;
+          const color     = positive ? '#FF6B35' : '#EF4444';
 
-        return (
-          <div key={mkt.conditionId} className="bg-term-card flex flex-col px-2 pt-2 pb-1 gap-1">
-            {/* Title */}
-            <div className="flex items-start justify-between gap-1">
-              <span className="text-term-green text-[10px] leading-tight line-clamp-2 flex-1">
-                {dayLabel(i)} // {(mkt.question || '').slice(0, 45)}
-              </span>
-              {sig && (
-                <span className={`text-[9px] border px-1 shrink-0 ${
-                  sig.signal.includes('NO') ? 'text-term-red border-term-red/40' : 'text-term-green border-term-green/40'
-                }`}>
-                  {sig.signal.includes('NO') ? '▼ NO' : '▲ YES'}
+          return (
+            <div key={mkt.conditionId}
+                 className="flex flex-col px-3 pt-3 pb-2 gap-1"
+                 style={{ background: '#16161F' }}>
+              {/* Title + signal */}
+              <div className="flex items-start justify-between gap-1">
+                <span className="text-white/80 text-xs leading-tight line-clamp-2 flex-1">
+                  {(mkt.question || '').slice(0, 55)}
                 </span>
-              )}
-            </div>
-
-            {/* Sparkline */}
-            <Sparkline data={history} positive={positive} />
-
-            {/* Stats row */}
-            <div className="flex items-center justify-between text-[10px]">
-              {edgeScore !== null ? (
-                <span className={`font-bold ${edgeScore >= 0.30 ? 't-pos' : edgeScore >= 0.15 ? 'text-term-amber' : 't-neg'}`}>
-                  {(edgeScore * 100).toFixed(1)}% EDGE
-                </span>
-              ) : (
-                <span className={`font-bold ${positive ? 't-pos' : 't-neg'}`}>
-                  {positive ? '+' : ''}{(pct - 50).toFixed(1)}% EDGE
-                </span>
-              )}
-              <span className="t-dim">YES {pct}¢</span>
-              <span className="t-dim">VOL ${(vol / 1000).toFixed(0)}k</span>
-            </div>
-
-            {/* Signal confidence */}
-            {sig && (
-              <div className="flex items-center gap-1">
-                <div className="flex-1 h-0.5 bg-term-border overflow-hidden rounded">
-                  <div className="h-full bg-term-green" style={{ width: `${sig.confidence * 100}%` }} />
-                </div>
-                <span className="text-[9px] t-dim">{(sig.confidence * 100).toFixed(0)}%</span>
+                {sig && (
+                  <span
+                    className="text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0"
+                    style={{
+                      background: sig.signal.includes('NO') ? 'rgba(239,68,68,0.12)' : 'rgba(16,185,129,0.12)',
+                      color: sig.signal.includes('NO') ? '#EF4444' : '#10B981',
+                    }}
+                  >
+                    {sig.signal.includes('NO') ? '▼ NO' : '▲ YES'}
+                  </span>
+                )}
               </div>
-            )}
-          </div>
-        );
-      })}
 
-      {/* Fill empty slots */}
-      {Array.from({ length: Math.max(0, 6 - items.length) }).map((_, i) => (
-        <div key={`empty-${i}`} className="bg-term-card flex items-center justify-center t-dim text-[10px]">
-          SCANNING...
-        </div>
-      ))}
+              {/* Sparkline */}
+              <Sparkline data={history} color={color} />
+
+              {/* Stats */}
+              <div className="flex items-center justify-between">
+                <span
+                  className="text-xs font-bold"
+                  style={{
+                    color: edgeScore !== null
+                      ? (edgeScore >= 0.30 ? '#10B981' : edgeScore >= 0.15 ? '#F59E0B' : '#EF4444')
+                      : (positive ? '#FF6B35' : '#EF4444'),
+                  }}
+                >
+                  {edgeScore !== null
+                    ? `${(edgeScore * 100).toFixed(1)}% EDGE`
+                    : `${positive ? '+' : ''}${(pct - 50).toFixed(1)}% EDGE`}
+                </span>
+                <span className="text-white/30 text-[10px]">YES {pct}¢</span>
+                <span className="text-white/30 text-[10px]">
+                  ${mkt.volume24h >= 1000 ? `${(mkt.volume24h/1000).toFixed(0)}k` : mkt.volume24h.toFixed(0)}
+                </span>
+              </div>
+
+              {/* Confidence bar */}
+              {sig && (
+                <div className="flex items-center gap-1.5">
+                  <div className="flex-1 h-0.5 rounded-full overflow-hidden"
+                       style={{ background: 'rgba(255,255,255,0.06)' }}>
+                    <div className="h-full rounded-full"
+                         style={{ width: `${sig.confidence * 100}%`, background: color }} />
+                  </div>
+                  <span className="text-[9px] text-white/30">{(sig.confidence * 100).toFixed(0)}%</span>
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {Array.from({ length: Math.max(0, 6 - items.length) }).map((_, i) => (
+          <div key={`empty-${i}`}
+               className="flex items-center justify-center text-white/20 text-xs"
+               style={{ background: '#16161F' }}>
+            Scanning markets...
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

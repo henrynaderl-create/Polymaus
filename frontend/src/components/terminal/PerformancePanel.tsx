@@ -1,80 +1,73 @@
 import React from 'react';
 import type { Portfolio, BotStatus } from '@/types';
 
-interface Props {
-  portfolio: Portfolio | null;
-  status: BotStatus | null;
-}
+interface Props { portfolio: Portfolio | null; status: BotStatus | null }
 
-function Row({ label, value, cls }: { label: string; value: string; cls?: string }) {
+function StatRow({ label, value, cls }: { label: string; value: string; cls?: string }) {
   return (
-    <div className="flex items-center justify-between py-[5px] border-b border-term-border/40">
-      <span className="t-label">{label}</span>
-      <span className={`font-bold text-[11px] ${cls ?? 'text-term-green'}`}>{value}</span>
+    <div className="flex items-center justify-between py-2 border-b border-white/[0.04] last:border-0">
+      <span className="text-white/40 text-xs">{label}</span>
+      <span className={`text-sm font-semibold ${cls ?? 'text-white'}`}>{value}</span>
     </div>
   );
 }
 
-function kelly(winRate: number): number {
-  // Simple Kelly: f* = 2p - 1 for even odds
-  return Math.max(0, 2 * (winRate / 100) - 1) * 100;
-}
-
-function sharpe(pnl: number, trades: number): string {
-  if (trades < 5) return '—';
-  const approx = (pnl / Math.max(trades, 1)) / (Math.abs(pnl / Math.max(trades, 1)) * 1.5 + 0.1);
-  return approx.toFixed(2);
+function BarSignal({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <div className="flex items-center gap-2 py-1">
+      <span className="text-white/40 text-xs w-14 shrink-0">{label}</span>
+      <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+        <div className="h-full rounded-full" style={{ width: `${value}%`, background: color }} />
+      </div>
+      <span className="text-xs font-mono w-6 text-right" style={{ color }}>{value}</span>
+    </div>
+  );
 }
 
 export function PerformancePanel({ portfolio: p, status }: Props) {
   if (!p) return (
-    <div className="panel h-full flex items-center justify-center t-dim text-[10px]">
-      LOADING STATS...
+    <div className="h-full flex items-center justify-center text-white/20 text-sm animate-pulse">
+      Loading stats...
     </div>
   );
 
-  const totalPnl  = p.realisedPnl + p.unrealisedPnl;
-  const kellyFrac = kelly(p.winRate).toFixed(1);
-  const sharpeR   = sharpe(p.realisedPnl, p.totalTrades);
-  const maxDD     = Math.min(0, p.dailyPnl);
+  const totalPnl = p.realisedPnl + p.unrealisedPnl;
+  const sharpe   = p.totalTrades < 5 ? '—'
+    : ((p.realisedPnl / Math.max(p.totalTrades, 1)) /
+       (Math.abs(p.realisedPnl / Math.max(p.totalTrades, 1)) * 1.5 + 0.1)).toFixed(2);
+  const kelly    = (Math.max(0, 2 * (p.winRate / 100) - 1) * 100).toFixed(1);
 
   return (
-    <div className="flex flex-col h-full panel">
-      <div className="panel-header">PERFORMANCE // STATS</div>
-      <div className="flex-1 overflow-y-auto px-2 py-1">
-        <Row label="TOTAL P&L"
+    <div className="flex flex-col h-full">
+      <div className="card-header">
+        <span className="card-title">Performance</span>
+        <span className="badge badge-muted">STATS</span>
+      </div>
+      <div className="flex-1 overflow-y-auto px-4 py-2">
+        <StatRow label="Total P&L"
           value={`${totalPnl >= 0 ? '+' : ''}$${totalPnl.toFixed(2)}`}
-          cls={totalPnl >= 0 ? 't-pos text-glow' : 't-neg'} />
-        <Row label="WIN RATE"    value={`${p.winRate.toFixed(1)}%`} />
-        <Row label="MAX DRAWDOWN"
-          value={`${maxDD < 0 ? '' : '+'}$${maxDD.toFixed(2)}`}
-          cls={maxDD < 0 ? 't-neg' : 't-dim'} />
-        <Row label="AVG LATENCY" value="12.6ms" cls="t-dim" />
-        <Row label="TRADES TOTAL" value={String(p.totalTrades)} />
-        <Row label="ACTIVE MARKETS" value={String(status?.markets?.length ?? 0)} />
-        <Row label="SHARPE RATIO"  value={sharpeR} />
-        <Row label="KELLY FRACTION" value={`${kellyFrac}%`} />
-        <Row label="OPEN POSITIONS" value={String(p.openPositions)} />
-        <Row label="DAILY P&L"
+          cls={totalPnl >= 0 ? 'text-emerald-400' : 'text-red-400'} />
+        <StatRow label="Win Rate"
+          value={`${p.winRate.toFixed(1)}%`}
+          cls={p.winRate >= 50 ? 'text-emerald-400' : 'text-red-400'} />
+        <StatRow label="Max Drawdown"
+          value={`$${Math.min(0, p.dailyPnl).toFixed(2)}`}
+          cls={p.dailyPnl < 0 ? 'text-red-400' : 'text-white/40'} />
+        <StatRow label="Avg Latency" value="12.6ms" cls="text-white/50" />
+        <StatRow label="Total Trades" value={String(p.totalTrades)} />
+        <StatRow label="Markets" value={String(status?.markets?.length ?? 0)} />
+        <StatRow label="Sharpe Ratio" value={sharpe} />
+        <StatRow label="Kelly Fraction" value={`${kelly}%`} />
+        <StatRow label="Daily P&L"
           value={`${p.dailyPnl >= 0 ? '+' : ''}$${p.dailyPnl.toFixed(2)}`}
-          cls={p.dailyPnl >= 0 ? 't-pos' : 't-neg'} />
-        <Row label="BALANCE"  value={`$${p.balance.toFixed(2)}`} />
-        <Row label="EQUITY"   value={`$${p.equity.toFixed(2)}`} />
+          cls={p.dailyPnl >= 0 ? 'text-emerald-400' : 'text-red-400'} />
+        <StatRow label="Balance" value={`$${p.balance.toFixed(2)}`} />
 
-        {/* Signal section */}
-        <div className="mt-3 mb-1 t-label">AI SIGNAL // CLAUDE</div>
-        {[
-          { label: 'BTC UP',   val: 39, color: '#00ff41' },
-          { label: 'BTC DOWN', val: 68, color: '#ff3333' },
-        ].map(s => (
-          <div key={s.label} className="flex items-center gap-2 py-1">
-            <span className="t-label w-16">{s.label}</span>
-            <div className="flex-1 h-1.5 bg-term-border overflow-hidden rounded-none">
-              <div className="h-full" style={{ width: `${s.val}%`, background: s.color }} />
-            </div>
-            <span className="text-[10px] w-6 text-right" style={{ color: s.color }}>{s.val}</span>
-          </div>
-        ))}
+        <div className="mt-3 mb-1">
+          <span className="text-white/30 text-[10px] font-medium tracking-widest uppercase">AI Signals</span>
+        </div>
+        <BarSignal label="BTC UP"   value={39} color="#10B981" />
+        <BarSignal label="BTC DOWN" value={68} color="#EF4444" />
       </div>
     </div>
   );

@@ -18,6 +18,7 @@ from typing import Any, Callable, Awaitable
 
 from app.clients.polymarket import PolymarketClient
 from app.config import BotMode, StrategyName, get_settings
+from app.engine.classifier import classify_market
 from app.engine.demo import DemoEngine
 from app.engine.portfolio import Portfolio
 from app.engine.risk import RiskEngine
@@ -264,7 +265,11 @@ class BotOrchestrator:
                         token_id[:8], price, reason, trade.get("pnl", 0)
                     )
                     self._last_trade_ts = time.time()
-                    await self._emit("trade", {**trade, "exitReason": reason})
+                    await self._emit("trade", {
+                        **trade,
+                        "exitReason": reason,
+                        "category": classify_market(trade.get("question", "")),
+                    })
                     await self._broadcast_portfolio()
 
     # ── Copy trading ──────────────────────────────────────────────────────
@@ -312,6 +317,7 @@ class BotOrchestrator:
                     executed += 1
                     self._last_trade_ts = time.time()
                     trade["traderAddress"] = sig["trader_address"]
+                    trade["category"] = classify_market(trade.get("question", ""))
                     logger.info(
                         "✓ COPY EXECUTED: %s '%s' @ %.3f size=$%.2f | from %s rank#%d",
                         sig["outcome"], sig["question"][:38], sig["price"],
@@ -390,6 +396,7 @@ class BotOrchestrator:
             if trade:
                 executed += 1
                 self._last_trade_ts = time.time()
+                trade["category"] = classify_market(trade.get("question", ""))
                 logger.info(
                     "✓ TRADE: %s '%s' @ %.3f size=$%.2f strat=%s",
                     sig.outcome, sig.question[:38], sig.price,
@@ -471,6 +478,7 @@ class BotOrchestrator:
             )
             if trade:
                 self._last_trade_ts = time.time()
+                trade["category"] = classify_market(m.get("question", ""))
                 logger.info(
                     "[PULSE] ✓ %s '%s' @ %.3f size=$%.2f",
                     outcome, (m.get("question") or "")[:40], price, trade.get("size", 0)

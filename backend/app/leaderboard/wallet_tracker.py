@@ -173,6 +173,7 @@ class WalletTracker:
 
     def get_snapshot(self) -> list[dict]:
         """Trader list for UI (matches Trader interface)."""
+        now = time.time()
         wallets = sorted(
             self._wallets.values(),
             key=lambda w: (w.trust_score, -w.rank),
@@ -192,6 +193,7 @@ class WalletTracker:
                 "recentPnl": 0.0,
                 "copyCount": w.copy_count,
                 "isFollowed": True,
+                "isActive": w.last_polled_ts > 0 and (now - w.last_polled_ts) < 300,
                 "lastAction": w.last_action,
                 "lastMarket": w.last_market,
             }
