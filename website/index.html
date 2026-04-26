@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Casino Provider — DexSport Clone</title>
+  <meta name="description" content="Übersicht aller Casino-Spieleanbieter. Nachbau im Stil von dexsport.io." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <a class="skip" href="#main">Zum Inhalt springen</a>
+
+  <header class="topbar">
+    <div class="container topbar__inner">
+      <a class="logo" href="#" aria-label="Startseite">
+        <span class="logo__mark">D</span>
+        <span class="logo__text">DexSport</span>
+      </a>
+
+      <nav class="nav" aria-label="Hauptnavigation">
+        <a href="#" class="nav__link">Sport</a>
+        <a href="#" class="nav__link">Live</a>
+        <a href="#" class="nav__link nav__link--active">Casino</a>
+        <a href="#" class="nav__link">Live Casino</a>
+        <a href="#" class="nav__link">Aktionen</a>
+      </nav>
+
+      <div class="topbar__actions">
+        <button class="btn btn--ghost" type="button">Anmelden</button>
+        <button class="btn btn--primary" type="button">Registrieren</button>
+        <button class="lang" type="button" aria-label="Sprache wählen">
+          <span class="lang__flag" aria-hidden="true">DE</span>
+        </button>
+      </div>
+
+      <button class="hamburger" type="button" aria-label="Menü öffnen" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+
+    <div class="subnav" aria-label="Casino-Untermenü">
+      <div class="container subnav__inner">
+        <a href="#" class="chip">Alle Spiele</a>
+        <a href="#" class="chip">Slots</a>
+        <a href="#" class="chip">Live</a>
+        <a href="#" class="chip">Tisch</a>
+        <a href="#" class="chip">Jackpots</a>
+        <a href="#" class="chip">Neu</a>
+        <a href="#" class="chip chip--active">Anbieter</a>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero">
+      <div class="container">
+        <p class="crumbs"><a href="#">Casino</a> <span>›</span> <span>Anbieter</span></p>
+        <h1>Casino Spieleanbieter</h1>
+        <p class="hero__lede">
+          Entdecken Sie über <strong id="providerCount">80</strong> Spieleanbieter
+          mit tausenden Slots, Live-Tischen und Jackpot-Spielen — direkt mit Krypto spielbar.
+        </p>
+
+        <div class="toolbar">
+          <label class="search" aria-label="Anbieter suchen">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4a6 6 0 1 1-3.9 10.6l-3.7 3.7-1.4-1.4 3.7-3.7A6 6 0 0 1 10 4Zm0 2a4 4 0 1 0 .001 8.001A4 4 0 0 0 10 6Z"/></svg>
+            <input id="search" type="search" placeholder="Anbieter suchen…" autocomplete="off" />
+          </label>
+
+          <div class="filters" role="tablist" aria-label="Sortieren">
+            <button class="filter is-active" data-sort="popular" role="tab" aria-selected="true">Beliebt</button>
+            <button class="filter" data-sort="az" role="tab" aria-selected="false">A–Z</button>
+            <button class="filter" data-sort="new" role="tab" aria-selected="false">Neu</button>
+            <button class="filter" data-sort="games" role="tab" aria-selected="false">Anzahl Spiele</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="providers">
+      <div class="container">
+        <ul id="providerGrid" class="grid" aria-live="polite"></ul>
+        <p id="emptyState" class="empty" hidden>Keine Anbieter gefunden.</p>
+      </div>
+    </section>
+
+    <section class="seo">
+      <div class="container seo__inner">
+        <h2>Über unsere Casino-Anbieter</h2>
+        <p>
+          Wir arbeiten mit den weltweit führenden Studios zusammen — von etablierten
+          Häusern wie <em>Pragmatic Play</em>, <em>Evolution</em> und <em>NetEnt</em>
+          bis zu spezialisierten Anbietern für Crash-Spiele und Live-Shows.
+          Jeder Anbieter wird auf faire Spielmechanik (provably fair / RNG-zertifiziert)
+          und schnelle Krypto-Auszahlungen geprüft.
+        </p>
+        <div class="seo__grid">
+          <article>
+            <h3>Slots</h3>
+            <p>Tausende Spielautomaten mit hohen RTP-Werten und Megaways-Mechaniken.</p>
+          </article>
+          <article>
+            <h3>Live Casino</h3>
+            <p>Echtzeit-Tische mit professionellen Dealern in HD-Studios.</p>
+          </article>
+          <article>
+            <h3>Crypto-First</h3>
+            <p>Sofortige Ein- und Auszahlungen in BTC, ETH, USDT und mehr.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer__inner">
+      <div class="footer__brand">
+        <a class="logo" href="#"><span class="logo__mark">D</span><span class="logo__text">DexSport</span></a>
+        <p>Krypto-Sportwetten und Online-Casino. 18+ Spielen Sie verantwortungsbewusst.</p>
+      </div>
+      <div class="footer__cols">
+        <div>
+          <h4>Casino</h4>
+          <a href="#">Slots</a><a href="#">Live</a><a href="#">Anbieter</a><a href="#">Jackpots</a>
+        </div>
+        <div>
+          <h4>Sport</h4>
+          <a href="#">Fußball</a><a href="#">Tennis</a><a href="#">eSports</a><a href="#">Live-Wetten</a>
+        </div>
+        <div>
+          <h4>Hilfe</h4>
+          <a href="#">FAQ</a><a href="#">Kontakt</a><a href="#">AGB</a><a href="#">Datenschutz</a>
+        </div>
+        <div>
+          <h4>Krypto</h4>
+          <a href="#">Bitcoin</a><a href="#">Ethereum</a><a href="#">USDT</a><a href="#">Litecoin</a>
+        </div>
+      </div>
+    </div>
+    <div class="footer__bottom container">
+      <span>© <span id="year"></span> DexSport-Clone — nur Demonstrationszwecke.</span>
+      <span class="age">18+</span>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
